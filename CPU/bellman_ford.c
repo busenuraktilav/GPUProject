@@ -1,3 +1,11 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "bellman_ford.h"
+
+#define INF 9999
+
 void bellman_ford(int **row_ptr, int **col_ind, int **row_ind, int **weights, int nv, int ne, int start)
 {
 	
@@ -32,15 +40,4 @@ void bellman_ford(int **row_ptr, int **col_ind, int **row_ind, int **weights, in
 			printf("Error: negative cycle exists\n");
 	}
 
-	/*
-
-	for(int i = 0; i < nv; i++){
-		printf("%i\n", distance[i]);
-	}
-
-	for(int i = 0; i < nv; i++){
-		printf("%i\n", previous[i]);
-	}
-
-	*/
 }

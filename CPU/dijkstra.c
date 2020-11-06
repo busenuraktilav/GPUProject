@@ -1,0 +1,53 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "dijkstra.h"
+#include "heap.h"
+
+#define INF 9999
+
+void dijkstra(int **row_ptr, int **col_ind, int **row_ind, int **weights, int nv, int ne, int start)
+{
+	int *distance = (int *)malloc(nv * sizeof(int));
+	int *previous = (int *)malloc(nv * sizeof(int));
+
+	Heap *h = create_heap(nv);
+
+	for(int count, v = 0; v < nv; v++)
+	{
+		distance[v] = INF;
+		previous[v] = -1;
+		
+		insert_to_heap(h, v);
+	}
+
+
+	h->arr[start] = create_node(start, distance[start]);
+	h->pos[start] = start;
+	distance[start] = 0;
+	decrease_key(h, start, distance[start]);
+
+	distance[start] = 0;
+
+
+	while(!heap_is_empty(h))
+	{
+		Node* minNode = pop_min(h);
+		int u = minNode->vertex_num;
+		int e = (*row_ptr)[u+1] - (*row_ptr)[u];
+
+		for (int i = 0; i < e; i++)
+		{
+			int tempDistance = distance[u] + (*weights)[(*row_ptr)[u]+i];
+
+			h->arr[(*col_ind)[(*row_ptr)[u]+i]]->distance = tempDistance;
+			decrease_key(h, (*col_ind)[(*row_ptr)[u]+i], tempDistance);
+
+			if(tempDistance < distance[(*col_ind)[(*row_ptr)[u]+i]])
+			{
+				distance[(*col_ind)[(*row_ptr)[u]+i]] = tempDistance;
+				previous[(*col_ind)[(*row_ptr)[u]+i]] = u;
+			}
+		}
+	}
+}
