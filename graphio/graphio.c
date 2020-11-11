@@ -19,6 +19,7 @@ int read_graph(const char *file, int **row_ptr, int **col_ind, int **row_ind, in
 	FILE *fp = fopen(file, "r");
 	char line[1025];
 	int m = 0, n = 0, nnz = 0;
+
 	
 	if(fp == NULL)
 	{
@@ -53,19 +54,15 @@ int read_graph(const char *file, int **row_ptr, int **col_ind, int **row_ind, in
 	memset((*row_ind), 0, sizeof(int) * (nnz + 1));
 	*weights = (int *)malloc((nnz+1) * sizeof(int));
 	memset((*weights), 0, sizeof(int) * (nnz + 1));
-	/*
-	for(int i = 0; i < nnz; i++)
-	{
-		(*weights)[i] = INF;
-	}*/
 
-	
-	//int size_needed = (m+1) * (n+1) * sizeof(int);
+
 	int size_needed = m * n * sizeof(int);
-	int *arr = (int *)malloc(size_needed);
-	memset((arr), 0, size_needed);
+	//int *arr = (int *)malloc(size_needed);
+	//memset((arr), 0, size_needed);
+	int *arr = (int *)calloc(m*n, sizeof(int));
 	int i, j, w, cnt, cnt2;
 	bool self_loop_flag = false;
+
 
 	for(cnt = 0; cnt < nnz; cnt++)
 	{
@@ -80,7 +77,7 @@ int read_graph(const char *file, int **row_ptr, int **col_ind, int **row_ind, in
 
 		*(arr + (i-1)*m + (j-1)) = w;
 		//*(arr + i*m + j) = w;
-		//printf("%i %i %i\n", i, j, w);
+
 	}
 
 	if(self_loop_flag)
@@ -131,6 +128,8 @@ int read_graph(const char *file, int **row_ptr, int **col_ind, int **row_ind, in
 
 	*nv = m;
 	*ne = nnz;
+
+	free(arr);
 	
 	return 1;
 }
