@@ -10,7 +10,7 @@
 
 //#define INFINITY 99999
 //#define INF 9999
-#define INF 0x3f3f3f3f
+//#define INF 0x3f3f3f3f
 
 int read_graph(const char *file, int **row_ptr, int **col_ind, int **row_ind, int **weights, int *nv, int *ne){
 
@@ -46,14 +46,14 @@ int read_graph(const char *file, int **row_ptr, int **col_ind, int **row_ind, in
 	}
 
 
-	*row_ptr = (int *)malloc(sizeof(int) * (m+1));
-	memset((*row_ptr), 0, sizeof(int) * (m + 1));
-	*col_ind = (int *)malloc((nnz+1) * sizeof(int));
-	memset((*col_ind), 0, sizeof(int) * (nnz + 1));
-	*row_ind = (int *)malloc((nnz+1) * sizeof(int));
-	memset((*row_ind), 0, sizeof(int) * (nnz + 1));
-	*weights = (int *)malloc((nnz+1) * sizeof(int));
-	memset((*weights), 0, sizeof(int) * (nnz + 1));
+	*row_ptr = (int *)calloc((m+1), sizeof(int));
+	//memset((*row_ptr), 0, sizeof(int) * (m + 1));
+	*col_ind = (int *)calloc((nnz+1), sizeof(int));
+	//memset((*col_ind), 0, sizeof(int) * (nnz + 1));
+	*row_ind = (int *)calloc((nnz+1), sizeof(int));
+	//memset((*row_ind), 0, sizeof(int) * (nnz + 1));
+	*weights = (int *)calloc((nnz+1), sizeof(int));
+	//memset((*weights), 0, sizeof(int) * (nnz + 1));
 
 
 	int size_needed = m * n * sizeof(int);

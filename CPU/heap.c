@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
 #include "heap.h"
 
-#define INF 9999
+//#define INF 9999
 
 Node* create_node(int vertex_num, int distance)
 {
@@ -22,6 +23,7 @@ Heap* create_heap(int capacity)
 		printf("Cannot allocate heap memory!\n");
 		return NULL;
 	}
+
 
 	h->pos = (int*)malloc(capacity * sizeof(int));
 	h->count = 0;
@@ -44,7 +46,7 @@ void insert_to_heap(Heap *h, int key)
 {
 	if(h->count < h->capacity) //heap is not full yet
 	{
-		h->arr[key] = create_node(key, INF);
+		h->arr[key] = create_node(key, INT_MAX);
 		h->pos[key] = key;
 		heapify_up(h, key);
 		h->count++;
