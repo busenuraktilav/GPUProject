@@ -3,10 +3,11 @@ extern "C" {
 #include "dijkstra.cuh"
 }
 
+#include <stdio.h>
+#include <limits.h>
 #include <cuda.h>
 #include <cuda_profiler_api.h>
 
-#define INF 9999
 #define N_THREADS_PER_BLOCK 1024
 
 
@@ -19,18 +20,23 @@ extern "C" {
  }
 
 
-__device__ int cudamind(int *dist, int *sptSet, int V)
+__device__ int cudamind(int *dist, int *visited, int V)
 {
 	int min = INT_MAX;
 	int min_index;
 
-	for (int v = 0; v < V; v++)
 
-		if (sptSet[v] == 0 && dist[v] <= min)
+	for (int v = 0; v < V; v++)
+	{
+
+		//printf("dist[%i]: %i, visited[%i]: %i\n", v, dist[v], v, visited[v]);
+
+		if (visited[v] == 0 && dist[v] <= min)
 		{
 			min = dist[v];
 			min_index = v;
 		}
+	}
 
 	return min_index;
 }
@@ -46,13 +52,17 @@ __global__ void cudasdj(int *row_ptr, int *col_ind, int *weights, int *distance,
 		int u = cudamind(distance, visited, nv);
 		int e = row_ptr[u+1] - row_ptr[u];
 
-		visited[u] = 1;
+		//printf("%i, %i\n", u, e);
+
+		visited[u] = 1;		
 
 		if (i < e)
 		{
 			int tempDistance = distance[u] + weights[(row_ptr)[u]+i];
 
-			if(tempDistance < distance[(col_ind)[(row_ptr)[u]+i]])
+			//printf("%i - distance[%i]: %i, weights[(row_ptr)[u]+i]: %i, tempDistance: %i, distance[(col_ind)[(row_ptr)[u]+i]]: %i\n", i, u, distance[u], weights[(row_ptr)[u]+i], tempDistance, distance[(col_ind)[(row_ptr)[u]+i]]);
+
+			if(tempDistance < distance[(col_ind)[(row_ptr)[u]+i]] && distance[u] != INT_MAX)
 			{
 				distance[col_ind[(row_ptr)[u]+i]] = tempDistance;
 				previous[col_ind[(row_ptr)[u]+i]] = u;
@@ -66,24 +76,25 @@ __global__ void cudasdj(int *row_ptr, int *col_ind, int *weights, int *distance,
 
 extern "C"
 
-void sdj(const int *row_ptr, const int *col_ind, const int *weights, int *distance, int *previous, const int nv, const int ne, int source, int *visited)
+void sdj(const int *row_ptr, const int *col_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source)
 {
 	// Initialize GPU variables
-	int *d_row_ptr;
-	int *d_col_ind;
-	int *d_weights;
-	int *d_distance;
-	int *d_previous;
-	int *d_visited;
-	int *d_nv;
-	int *d_ne;
+	int *d_row_ptr, *d_col_ind, *d_weights, *d_distance, *d_previous, *d_visited, *d_nv, *d_ne;
+
 	
 	// Initialize CPU variables
-	distance[source] = 0;
+	*distance = (int*)malloc(nv*sizeof(int)); 
+	*previous = (int*)malloc(nv*sizeof(int));
+	int *visited = (int*)calloc(nv, sizeof(int));
 
+	for (int i = 0; i < nv; i++)
+	{
+		(*distance)[i] = INT_MAX;
+		(*previous)[i] = -1;
+	}
 
-	//int snv = (nv+1)*sizeof(int);
-	//int sne = (ne+1)*sizeof(int);
+	(*distance)[source] = 0;
+
 
 	// Allocate device
 	cudaMalloc((void **)&d_row_ptr, (nv+1)*sizeof(int));
@@ -99,9 +110,11 @@ void sdj(const int *row_ptr, const int *col_ind, const int *weights, int *distan
 	cudaMemcpy(d_row_ptr, row_ptr, (nv+1)*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_col_ind, col_ind, (ne+1)*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_weights, weights, (ne+1)*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_distance, distance, nv*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_distance, *distance, nv*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_nv, &nv, sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_ne, &ne, sizeof(int), cudaMemcpyHostToDevice);
+
+	cudaMemcpy(d_visited, visited, nv*sizeof(int), cudaMemcpyHostToDevice);
 
 
 	cudaEvent_t start;
@@ -111,17 +124,18 @@ void sdj(const int *row_ptr, const int *col_ind, const int *weights, int *distan
 	cudaEventCreate(&stop);
 	cudaEventRecord(start, 0);
 
+	int threadnum = (nv > 1024) ? 1024 : nv;
 
-	cudasdj<<<(ne+1023)/1024, nv>>>(d_row_ptr, d_col_ind, d_weights, d_distance, d_previous, nv, ne, d_visited);
-
+	cudasdj<<<10, threadnum>>>(d_row_ptr, d_col_ind, d_weights, d_distance, d_previous, nv, ne, d_visited);
 
 	cudaEventRecord(stop, 0);
 	cudaEventSynchronize(stop);
 	float elapsed;
 	cudaEventElapsedTime(&elapsed, start, stop);
 	
-
-	cudaMemcpy(distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost);
+	//Copy outputs to host
+	cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(*previous, d_previous, nv*sizeof(int), cudaMemcpyDeviceToHost);
 
 
 	// Deallocation

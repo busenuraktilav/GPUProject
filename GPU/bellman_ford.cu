@@ -3,6 +3,8 @@ extern "C" {
 #include "bellman_ford.cuh"
 }
 
+#include <stdio.h>
+#include <limits.h>
 #include <cuda.h>
 #include <cuda_profiler_api.h>
 
@@ -26,9 +28,10 @@ __global__ void cudasbf(int *row_ptr, int *col_ind, int *row_ind, int *weights, 
 	{
 		if(tid < ne)
 		{
+			//printf("%i\n", tid);
 			int tempdistance = distance[(row_ind)[tid]] + weights[tid];
 
-			if(tempdistance < distance[(col_ind)[tid]])
+			if(tempdistance < distance[(col_ind)[tid]] && distance[(row_ind)[tid]] != INT_MAX)
 			{
 				distance[(col_ind)[tid]] = tempdistance;
 				previous[(col_ind)[tid]] = row_ind[tid];
@@ -40,24 +43,23 @@ __global__ void cudasbf(int *row_ptr, int *col_ind, int *row_ind, int *weights, 
 
 extern "C"
 
-void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int *distance, int *previous, const int nv, const int ne, int source)
+void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source)
 {
 	// Initialize GPU variables
-	int *d_row_ptr;
-	int *d_col_ind;
-	int *d_row_ind;
-	int *d_weights;
-	int *d_distance;
-	int *d_previous;
-	int *d_nv;
-	int *d_ne;
+	int *d_row_ptr, *d_col_ind, *d_row_ind, *d_weights, *d_distance, *d_previous, *d_nv, *d_ne;
 	
 	// Initialize CPU variables
-	distance[source] = 0;
+	*distance = (int*)malloc(nv*sizeof(int)); 
+	*previous = (int*)malloc(nv*sizeof(int));
 
+	for (int i = 0; i < nv; i++)
+	{
+		(*distance)[i] = INT_MAX;
+		(*previous)[i] = -1;
+	}
 
-	//int snv = (nv+1)*sizeof(int);
-	//int sne = (ne+1)*sizeof(int);
+	(*distance)[source] = 0;
+
 
 	// Allocate device
 	cudaMalloc((void **)&d_row_ptr, (nv+1)*sizeof(int));
@@ -74,7 +76,7 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaMemcpy(d_col_ind, col_ind, (ne+1)*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_row_ind, row_ind, (ne+1)*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_weights, weights, (ne+1)*sizeof(int), cudaMemcpyHostToDevice);
-	cudaMemcpy(d_distance, distance, nv*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_distance, (*distance), nv*sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_nv, &nv, sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_ne, &ne, sizeof(int), cudaMemcpyHostToDevice);
 
@@ -94,15 +96,20 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaEventElapsedTime(&elapsed, start, stop);
 
 	// Copy outputs to host
-	cudaMemcpy(distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy((*distance), d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy((*previous), d_previous, nv*sizeof(int), cudaMemcpyDeviceToHost);
 
 
 	// check for negative cycles
 	for(int e = 0; e < ne; e++)
 	{
-		if(distance[row_ind[e]] + weights[e] < distance[(col_ind)[e]])
-			printf("Error: negative cycle exists\n");
+		if((*distance)[row_ind[e]] + weights[e] < (*distance)[(col_ind)[e]] && (*distance)[row_ind[e]] != INT_MAX)
+		{
+			printf("cuda Error: negative cycle exists\n");
+			break;
+		}
 	}
+
 
 
 	// Deallocation
@@ -113,5 +120,5 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaFree(d_distance);
 	cudaFree(d_previous);
 
-	printf("GPU SBF time: %f\n", elapsed);
+	printf("GPU SBF time: %f\n", elapsed/1000);
 }
