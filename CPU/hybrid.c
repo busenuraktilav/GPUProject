@@ -9,32 +9,39 @@
 #include "heap.h"
 
 
+/*A hybrid of the Bellman–Ford and Dijkstra algorithms is suggested, improving the
+running time bound of Bellman–Ford for graphs with a sparse distribution of negative cost
+edges. The algorithm iterates Dijkstra several times without re-initializing the tentative
+value d ( v ) at vertices. At most k + 2 iterations solve the problem, if for any vertex reachable
+from the source, there exists a shortest path to it with at most k negative cost edges.*/
 void hybrid(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **distance, int **previous, int nv, int ne, int start)
 {
 	*distance = (int *)malloc(nv * sizeof(int));
 	*previous = (int *)malloc(nv * sizeof(int));
-
-	Heap *h = create_heap(nv);
-
+	
 	for(int count, v = 0; v < nv; v++)
 	{
 		(*distance)[v] = INT_MAX;
 		(*previous)[v] = -1;
 		
-		insert_to_heap(h, v);
+		//insert_to_heap(h, v);
 	}
-
-
-	h->arr[start] = create_node(start, (*distance)[start]);
-	h->pos[start] = start;
-	(*distance)[start] = 0;
-	decrease_key(h, start, (*distance)[start]);
-
-	int i = 0;
-
-	do
+	int k = 1;//at most k negative edges
+	//for(int iteration = 0; iteration < 10; iteration++)
+	for(int iteration = 0; iteration < k + 2; iteration++)
 	{
-		i++;
+		Heap *h = create_heap(nv);
+
+		for(int count, v = 0; v < nv; v++)
+		{
+			insert_to_heap(h, v);
+		}
+
+		//printf("Dijkstra run %d\n", iteration);
+		h->arr[start] = create_node(start, (*distance)[start]);
+		h->pos[start] = start;
+		(*distance)[start] = 0;
+		decrease_key(h, start, (*distance)[start]);
 
 		while(!heap_is_empty(h))
 		{
@@ -45,19 +52,21 @@ void hybrid(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **di
 			for (int i = 0; i < e; i++)
 			{
 				int tempDistance = (*distance)[u] + (*weights)[(*row_ptr)[u]+i];
-
-				h->arr[(*col_ind)[(*row_ptr)[u]+i]]->distance = tempDistance;
-				decrease_key(h, (*col_ind)[(*row_ptr)[u]+i], tempDistance);
-
-				//RELAX 
-				if(tempDistance < (*distance)[(*col_ind)[(*row_ptr)[u]+i]])
+				int dest = (*col_ind)[(*row_ptr)[u]+i];
+				if((*distance)[u] != INT_MAX)
 				{
-					(*distance)[(*col_ind)[(*row_ptr)[u]+i]] = tempDistance;
-					(*previous)[(*col_ind)[(*row_ptr)[u]+i]] = u;
+					h->arr[dest]->distance = tempDistance;
+					decrease_key(h, dest, tempDistance);
+				}
+
+				if(tempDistance < (*distance)[dest] && (*distance)[u] != INT_MAX)
+				{
+					(*distance)[dest] = tempDistance;
+					(*previous)[dest] = u;
+					//printf("Temp distance update at iteration %d\n",iteration);
 				}
 			}
 		}
 
-	} while (!heap_is_empty(h) || i == nv - 1);
-
-	
+	} 
+}
