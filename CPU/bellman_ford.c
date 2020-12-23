@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
+#include <stdbool.h>
 
 #include "bellman_ford.h"
 
@@ -20,31 +21,72 @@ void bellman_ford(int **row_ptr, int **col_ind, int **row_ind, int **weights, in
 
 	(*distance)[start] = 0;
 
-	for(int v1 = 0; v1 < nv; v1++)
+	bool has_change;
+
+	for (int v1 = 0; v1 < nv-1; v1++)
 	{
-		for(int v2 = 0; v2 < ne; v2++)
+		has_change = false;
+		//printf("traverse %i\n", v1);
+
+		for (int v2 = 0; v2 < nv; v2++)
 		{
-			//RELAX procedure
-			int tempDistance = (*distance)[(*row_ind)[v2]] + (*weights)[v2];
+			int edgeStart = (*row_ptr)[v2];
+			int edgeEnd;
 
-			if(tempDistance < (*distance)[(*col_ind)[v2]] && (*distance)[(*row_ind)[v2]] != INT_MAX)
+			if ((v2 + 1) < nv) edgeEnd = (*row_ptr)[v2+1];
+			else               edgeEnd = ne;
+
+			for (int e = edgeStart; e < edgeEnd; e++)
 			{
-				(*distance)[(*col_ind)[v2]] = tempDistance;
-				(*previous)[(*col_ind)[v2]] = (*row_ind)[v2];
-			}
+				//printf("distance[%i]: %i\n", v2, (*distance)[v2]);
+				int tempDistance = (*distance)[v2] + (*weights)[e];
+				int neigh = (*col_ind)[e];
 
-			//printf("%i-%i -> %i\n", (*row_ind)[v2], (*col_ind)[v2], (*distance)[(*col_ind)[v2]]);
+				//printf("tempDistance: %i\n", tempDistance);
+
+				if (tempDistance < (*distance)[neigh] && (*distance)[v2] != INT_MAX)
+				{
+					(*distance)[neigh] = tempDistance;
+					(*previous)[neigh] = v2;
+					has_change = true;
+					//printf("inside RELAX\n");
+				}
+			}
 		}
+
+		if(!has_change)
+			break;
 	}
 
 	//check for negative cycles
-	for(int v2 = 0; v2 < ne; v2++)
+
+	int neg_cycle = false;
+
+	for (int v2 = 0; v2 < nv; v2++)
 	{
-		if((*distance)[(*row_ind)[v2]] + (*weights)[v2] < (*distance)[(*col_ind)[v2]] && (*distance)[(*row_ind)[v2]] != INT_MAX)
+		int edgeStart = (*row_ptr)[v2];
+		int edgeEnd;
+
+		if((v2+1) < nv) edgeEnd = (*row_ptr)[v2+1];
+		else            edgeEnd = ne;
+
+		for (int e = edgeStart; e < edgeEnd; e++)
 		{
-			printf("belman ford Error: negative cycle exists\n");
-			break;
+			int tempDistance = (*distance)[v2] + (*weights)[e];
+			int neigh = (*col_ind)[e];
+
+			if (tempDistance < (*distance)[neigh] && (*distance)[v2] != INT_MAX)
+			{
+				printf("belman ford Error: negative cycle exists\n");
+				neg_cycle = true;
+				break;
+
+			}
+
 		}
+
+		if(neg_cycle)
+			break;
 	}
 
 }
