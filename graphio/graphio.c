@@ -8,29 +8,9 @@
 
 #include "graphio.h"
 
-struct edge
-{
-	int i;
-	int j;
-	int w;
-};
-
-typedef struct edge Edge;
-
-
-int edge_cmp(const void *e1, const void *e2)
-{
-	Edge *edge1 = (Edge *)e1;
-	Edge *edge2 = (Edge *)e2;
-
-	if(edge1->i == edge2->i)
-
-		return (int)(edge1->j - edge2->j);
-
-	else
-		return (int)(edge1->i - edge2->i);
-}
-
+//#define INFINITY 99999
+//#define INF 9999
+//#define INF 0x3f3f3f3f
 
 int read_graph(const char *file, int **row_ptr, int **col_ind, int **row_ind, int **weights, int *nv, int *ne){
 
@@ -59,8 +39,6 @@ int read_graph(const char *file, int **row_ptr, int **col_ind, int **row_ind, in
 	
 	sscanf(line, "%d %d %d", &m, &n, &nnz);
 
-	printf("---------%i, %i %i\n", m, n, nnz);
-
 	if(m != n)
 	{
 		printf("Not a square matrix\n");
@@ -68,93 +46,95 @@ int read_graph(const char *file, int **row_ptr, int **col_ind, int **row_ind, in
 	}
 
 
-	long long int size_needed = 2 * nnz * sizeof(Edge);
-	Edge *E = (Edge *)malloc(size_needed);
+	*row_ptr = (int *)calloc((m+1), sizeof(int));
+	//memset((*row_ptr), 0, sizeof(int) * (m + 1));
+	*col_ind = (int *)calloc((nnz+1), sizeof(int));
+	//memset((*col_ind), 0, sizeof(int) * (nnz + 1));
+	*row_ind = (int *)calloc((nnz+1), sizeof(int));
+	//memset((*row_ind), 0, sizeof(int) * (nnz + 1));
+	*weights = (int *)calloc((nnz+1), sizeof(int));
+	//memset((*weights), 0, sizeof(int) * (nnz + 1));
 
-	int cnt = 0, ecnt, i, j, w;
-	int self_loop_flag = 1;
 
-	
-	for (ecnt = 0; ecnt < nnz; ++ecnt)
+	int size_needed = m * n * sizeof(int);
+	//int *arr = (int *)malloc(size_needed);
+	//memset((arr), 0, size_needed);
+	int *arr = (int *)calloc(m*n, sizeof(int));
+	int i, j, w, cnt, cnt2;
+	bool self_loop_flag = false;
+
+
+	for(cnt = 0; cnt < nnz; cnt++)
 	{
 		fgets(line, 1025, fp);
-
 		sscanf(line, "%d %d %d", &i, &j, &w);
 
-		if(i != j) //no self loops
+		if(i == j)
 		{
-			E[cnt].i = i;
-			E[cnt].j = j;
-			E[cnt].w = w;
-			cnt++;
- 		}
+			self_loop_flag = true;
+			continue;
+		}
 
+		*(arr + (i-1)*m + (j-1)) = w;
+		//*(arr + i*m + j) = w;
 
- 		else if(self_loop_flag && i == j)
- 		{
- 			self_loop_flag = 0;
- 			printf("Warning: Graph contains self loops\n");
- 		}
 	}
 
-
-	qsort(E, cnt, sizeof(Edge), edge_cmp);
-
-	*row_ind = (int *)calloc((m+2), sizeof(int));
-
-	*row_ptr = (int *)calloc((m+2), sizeof(int));
-	(*row_ptr)[E[0].i + 1]++;
-
-	*col_ind = (int *)malloc(cnt*sizeof(int));
-	(*col_ind)[0] = E[0].j;
-
-	*weights = (int *)malloc(cnt*sizeof(int));
-	(*weights)[0] = E[0].w;
-
-	int k = 0, l = 1, h = 1; 
-
-	for (ecnt = 1; ecnt < cnt; ecnt++)
-	{
-		i = E[ecnt].i;
-        if (i != E[ecnt - 1].i || E[ecnt].j != E[ecnt - 1].j) 
-        { 
-            (*row_ptr)[i + 1]++;
-            k = i; // the first edge entry 
-            (*col_ind)[l++] = E[ecnt].j;
-            (*weights)[h++] = E[ecnt].w;
-        }
-    }
-
-    
-	for (i = 2; i <= m+1; ++i) // cumulative sum
-	{ 
-        (*row_ptr)[i] += (*row_ptr)[i - 1];
-    }
-
-
-    int s = 0;
-	*row_ind = (int *)malloc(m*sizeof(int));
-
-    for (int i = 0; i < m+1; i++)
-    {
-    	int count = (*row_ptr)[i+1] - (*row_ptr)[i];
-
-    	for (int j = 0; j < count; j++)
-    	{
-    		(*row_ind)[s] = i;
-    		s++;  
-    	}
-    }
-
-
-    *nv = m;
-    *ne = cnt;
-
-    free(E);
-
-    printf("graph reading is DONE!\n");
-
-    return 1;
-    
 	
+
+	if(self_loop_flag)
+	{
+		printf("Warning: Graph contains self loops\n");
+	}
+
+	printf("---------%i, %i %i\n", m, n, nnz);
+	
+
+	int ci = 0, cr = 1, fr = 0;
+	(*row_ptr)[0] = 0;
+
+	for(cnt = 0; cnt < m; cnt++)
+	{
+		for(cnt2 = 0; cnt2 < n; cnt2++)
+		{
+			if(*(arr + cnt*m + cnt2) != 0)
+			{
+				(*col_ind)[ci] = cnt2;
+				//printf("%i\n", cnt2);
+				(*weights)[ci] = *(arr + cnt*m + cnt2);
+				//printf("%i\n", (*weights)[ci]);
+			
+				ci++;
+				
+			}
+		}
+
+		(*row_ptr)[cr] = ci; 
+
+		for(int i = (*row_ptr)[cr-1]; i < (*row_ptr)[cr]; i++)
+		{
+			(*row_ind)[i] = cnt;
+			//printf("%i %i %i %i %i\n", (*row_ptr)[cr-1], (*row_ptr)[cr], i, cnt, (*row_ind)[cnt]);
+		}
+		//printf("%i\n", ci);
+		//printf("%i\n", ci + 1);
+		cr++;
+
+	}
+	/*
+	for(cnt = 0; cnt < nnz; cnt++)
+	{
+		//printf("%i %i\n", cnt, (*row_ind)[cnt]);
+	}
+	*/
+
+	*nv = m;
+	*ne = nnz;
+
+	free(arr);
+	
+	return 1;
 }
+
+
+
