@@ -83,36 +83,7 @@ __global__ void relaxAtom(int *row_ptr, int *col_ind, int *weights, int *queue, 
     }
 }
 
-/*
-__global__ void relaxInit(int *row_ptr, int *col_ind, int *weights, int *source, int *nextQueue, int* size, int* nextSize, int2* distance)
 
-{
-    int index, v, w, du, tid = threadIdx.x + (blockDim.x * blockIdx.x);
-
-    if (tid < *size) { 
-        
-    	du = distance[*source].x;
-    	//printf("du %i\n", du);
-
-        for (int e = row_ptr[*source]; e < row_ptr[(*source) + 1]; e++) {
-            
-            v = col_ind[e];
-            w = weights[e];
-            atomicMin(&distance[v].x,du+w);
-
-            //if (distance[v].y != 1)
-            //{
-	        	
-	        	index = atomicAdd(nextSize, 1);
-				nextQueue[index] = v;
-
-				//printf("distance %i\n", v);
-			//}
-
-        }
-    }
-    __syncthreads();
-}*/
 
 
 
@@ -133,27 +104,46 @@ __global__ void initVar(int2 *distance, int *nv)
 }
 
 
+__global__ void subset_of_vertices(int *size, float *percentage, int *queue, int *subset_queue)
+{
+	int i = threadIdx.x + (blockDim.x * blockIdx.x);
+
+	int t = (*size) * (*percentage);
+	int temp = t;
+	int rand = i*t + i + t + (*percentage) * (*size);
+
+	if (i < t)
+	{
+		subset_queue[i] = (queue)[rand%(t)];
+		//printf("%i\n", subset_queue[i]);
+	}
+
+	(*size) = temp;
+}
+
+
 
 extern "C"
 
-void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source)
+void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals)
 {
-
-	cudaEvent_t start;
-	cudaEvent_t stop;
-	cudaCheck(cudaEventCreate(&start));
-	cudaCheck(cudaEventCreate(&stop));
-	cudaCheck(cudaEventRecord(start, 0));
-
-	cudaProfilerStart();
 
 	// Initialize GPU variables
 	int *d_row_ptr, *d_col_ind, *d_weights, *d_nv;
-	int *d_queue, *d_nextQueue, *d_nextSize, *d_iter;
+	int *d_queue, *d_nextQueue, *d_nextSize, *d_iter, *d_subset_queue;
+	float *d_percentage;
 	int2* d_dist;
 
 
 	int2* dist = (int2*)malloc(nv*sizeof(int2));
+
+
+	int signal_partial_graph_process = (*appr_vals)[0];
+	int signal_reduce_execution = (*appr_vals)[1];
+	int iter_num = (*appr_vals)[2];
+	float *percentage = (float*)malloc(nv*sizeof(float));
+	*percentage = (*appr_vals)[3];
+
 
 
 	cudaCheck(cudaMalloc((void **)&d_row_ptr, (nv+1)*sizeof(int)));
@@ -163,6 +153,16 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaCheck(cudaMalloc((void **)&d_nv, sizeof(int)));
 
 	cudaCheck(cudaMemcpy(d_nv, &nv, sizeof(int), cudaMemcpyHostToDevice));
+
+
+
+	cudaEvent_t start;
+	cudaEvent_t stop;
+	cudaCheck(cudaEventCreate(&start));
+	cudaCheck(cudaEventCreate(&stop));
+	cudaCheck(cudaEventRecord(start, 0));
+
+	cudaProfilerStart();
 
 
 	initVar<<<(nv + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_dist, d_nv);
@@ -199,6 +199,8 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaCheck(cudaMalloc((void **)&d_queue, (nv+1)*sizeof(int)));
     cudaCheck(cudaMalloc((void **)&d_nextQueue, (nv+1)*sizeof(int)));
     cudaCheck(cudaMalloc((void **)&d_iter, sizeof(int)));
+    cudaCheck(cudaMalloc((void **)&d_percentage, sizeof(float)));
+    cudaCheck(cudaMalloc((void **)&d_subset_queue, (nv+1)*sizeof(int))); //space might be percentage*size 
 
 	//Copy inputs to device
 	cudaCheck(cudaMemcpy(d_row_ptr, row_ptr, (nv+1)*sizeof(int), cudaMemcpyHostToDevice));
@@ -207,7 +209,7 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaCheck(cudaMemcpy(d_dist, dist, nv*sizeof(int2), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_queue, srcArr, srcNeigh * sizeof(int), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
-	
+	cudaCheck(cudaMemcpy(d_percentage, percentage, sizeof(float), cudaMemcpyHostToDevice));
 
 
 	int size = srcNeigh;
@@ -217,9 +219,82 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 
 	int round = 1;
 	int temp = 0;
+	
+
+	// no approximation. Both signals are negative
+	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process) { temp += size;
+
+		//printf("NO APPR\n");
+
+		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+		relaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
+
+		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+		(*iter) ++;
 
 
-	while((size > 0) && (round < nv) && temp < ne) { temp += size;
+		printf("size: %i\n", size);
+
+		size = *nextSize;
+		*nextSize = 0;
+		std::swap(d_queue, d_nextQueue); // swap frontiers
+
+		//printf("round: %i\n", round);
+
+		(*appr_vals)[2] = round;
+		round++;
+
+	}
+
+	
+
+	// If reduce signal is negative && partial graph processing signal positive
+	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && signal_partial_graph_process) { temp += size;
+
+		//printf("PARTIAL_SIGNAL APPR\n");
+
+		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+		relaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter);
+
+		//cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+		(*iter) ++;
+
+ 		
+		
+
+		
+		std::swap(d_queue, d_nextQueue); // swap frontiers
+
+
+		subset_of_vertices<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_nextSize, d_percentage, d_queue, d_subset_queue);
+
+		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+		std::swap(d_queue, d_subset_queue);
+
+		printf("size: %i\n", size);
+		
+		//subset_of_vertices(&size, percentage, &d_queue);
+		
+		size = *nextSize;
+		*nextSize = 0;
+
+		round++;
+
+	}
+	
+	//If reduce signal is positive && partial process signal negative
+	while((round < iter_num+1) && signal_reduce_execution) { temp += size;
+
+		//printf("REDUCE_SIGNAL APPR + PARTIAL_SIGNAL APPR\n");
 
 		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
 
@@ -238,13 +313,14 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 		*nextSize = 0;
 		std::swap(d_queue, d_nextQueue); // swap frontiers
 
-		//printf("round: %i\n", round);
+		//printf("new size: %i\n", size);
+		//printf("round:%i, iter_num:%i\n", round,iter_num+1);
 
 		round++;
 
 	}
 
-	printf("total size: %i\n", temp);
+	//printf("total size: %i\n", temp);
 
 	// Copy outputs to host
 	cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
@@ -280,12 +356,19 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	}
 
 
+	*distance = (int*)malloc((nv+1)*sizeof(int)); 
+
+	for (int i = 0; i < nv; i++)
+	{
+		(*distance)[i] = dist[i].x;
+	}
+
+
 	// Deallocation
 	cudaCheck(cudaFree(d_row_ptr));
 	cudaCheck(cudaFree(d_col_ind));
 	cudaCheck(cudaFree(d_weights));
 	cudaCheck(cudaFree(d_dist));
-
 
 
 	printf("GPU SBF time(ms): %f\n", elapsed);
