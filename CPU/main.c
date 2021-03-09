@@ -95,7 +95,7 @@ int main(int argc, char const *argv[])
 			appr_vals[1] = 0; 
 			appr_vals[4] = 100; 
 			
-			denemebf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX);
+			apprbf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX);
 			
 			
 			float error = relative_error(&gpu_bf_distance, &gpu_appr_dist3, nv);
@@ -119,7 +119,7 @@ int main(int argc, char const *argv[])
 			appr_vals[0] = 0;
 			appr_vals[1] = 0; 
 
-			denemebf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, max_distance);
+			apprbf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, max_distance);
 			
 			
 			float error = relative_error(&gpu_bf_distance, &gpu_appr_dist3, nv);
@@ -151,7 +151,7 @@ int main(int argc, char const *argv[])
 
 				appr_vals[2] = iter_num+1;
 
-				denemebf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, &appr_vals, INT_MAX);
+				apprbf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, &appr_vals, INT_MAX);
 
 				float error = relative_error(&gpu_bf_distance, &gpu_appr_dist1, nv);
 
@@ -178,7 +178,7 @@ int main(int argc, char const *argv[])
 				appr_vals[3] = percentage[i];
 				printf("%f\n", percentage[i]);
 
-				denemebf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, &appr_vals, INT_MAX);
+				apprbf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, &appr_vals, INT_MAX);
 
 				float error = relative_error(&gpu_bf_distance, &gpu_appr_dist1, nv);
 
