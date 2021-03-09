@@ -22,7 +22,7 @@ extern "C" {
     	exit(1); \
  }
 
-__global__ void cudaRelax(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int* nv, int* distance) 
+__global__ void relax(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int* nv, int* distance) 
 {
 
     int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
@@ -51,7 +51,7 @@ __global__ void cudaRelax(int *row_ptr, int *col_ind, int *weights, int *queue, 
 
 }
 
-__global__ void cudarelaxAtom(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter) 
+__global__ void relaxAtom(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter) 
 {
 
     int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
@@ -80,51 +80,11 @@ __global__ void cudarelaxAtom(int *row_ptr, int *col_ind, int *weights, int *que
 				}
             }
         }
-        //distance[tid].y = 0;
     }
 }
 
 
-__global__ void cudarelaxAtomEstimate(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter) 
-{
-
-    int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
-
-    if (tid < size) { 
-        
-    	u = queue[tid];
-    	du = distance[u].x;
-
-    	distance[tid].y = 0;
-    	//printf("distance[%i].y: %i\n", tid, distance[tid].y );
-
-        for (int e = row_ptr[u]; e < row_ptr[u + 1]; e++) {
-            
-            v = col_ind[e];
-            w = weights[e];
-            dv = distance[v].x;
-            add = du + w;
-
-            if (add < dv && du != INT_MAX)
-            {
-            	atomicMin(&distance[v].x,add);
-
-            	if(distance[v].y == 0)
-            	{
-	            	(distance[v].y)+=1;
-	            	index = atomicAdd(nextSize, 1);
-					nextQueue[index] = v;
-				}
-            }
-        }
-    }
-}
-
-
-
-
-
-__global__ void cudainitVar(int2 *distance, int *nv, int *max_distance)
+__global__ void initVar(int2 *distance, int *nv)
 {
 	int bdim = blockDim.x, gdim = gridDim.x, bid = blockIdx.x, tid = threadIdx.x;
 	int i = bdim * bid + tid;
@@ -132,7 +92,7 @@ __global__ void cudainitVar(int2 *distance, int *nv, int *max_distance)
 
 	for (int k = i; k < *nv; k += skip) {
 
-		distance[k].x = *max_distance; //instead of INT_MAX, calculated possible max_distance
+		distance[k].x = INT_MAX;
 		distance[k].y = 1; // dont update this in relaxinit. update here. no need for mem copy
 	}
 
@@ -141,7 +101,7 @@ __global__ void cudainitVar(int2 *distance, int *nv, int *max_distance)
 }
 
 
-__global__ void cudasubset_of_vertices(int *size, float *percentage, int *queue, int *subset_queue)
+__global__ void subset_of_vertices(int *size, float *percentage, int *queue, int *subset_queue)
 {
 	int i = threadIdx.x + (blockDim.x * blockIdx.x);
 
@@ -152,6 +112,7 @@ __global__ void cudasubset_of_vertices(int *size, float *percentage, int *queue,
 	if (i < t)
 	{
 		subset_queue[i] = (queue)[rand%(t)];
+		//printf("%i\n", subset_queue[i]);
 	}
 
 	(*size) = temp;
@@ -161,11 +122,11 @@ __global__ void cudasubset_of_vertices(int *size, float *percentage, int *queue,
 
 extern "C"
 
-void denemebf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals, int max_distance)
+void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals)
 {
 
 	// Initialize GPU variables
-	int *d_row_ptr, *d_col_ind, *d_weights, *d_nv, *d_max_distance;
+	int *d_row_ptr, *d_col_ind, *d_weights, *d_nv;
 	int *d_queue, *d_nextQueue, *d_nextSize, *d_iter, *d_subset_queue;
 	float *d_percentage;
 	int2* d_dist;
@@ -187,11 +148,9 @@ void denemebf(const int *row_ptr, const int *col_ind, const int *row_ind, const 
 	cudaCheck(cudaMalloc((void **)&d_weights, (ne+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_dist, nv*sizeof(int2)));
 	cudaCheck(cudaMalloc((void **)&d_nv, sizeof(int)));
-	cudaCheck(cudaMalloc((void **)&d_max_distance, sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_subset_queue, (nv+1)*sizeof(int))); //space might be percentage*size 
 
 	cudaCheck(cudaMemcpy(d_nv, &nv, sizeof(int), cudaMemcpyHostToDevice));
-	cudaCheck(cudaMemcpy(d_max_distance, &max_distance, sizeof(int), cudaMemcpyHostToDevice));
 
 
 
@@ -204,7 +163,7 @@ void denemebf(const int *row_ptr, const int *col_ind, const int *row_ind, const 
 	cudaProfilerStart();
 
 
-	cudainitVar<<<(nv + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_dist, d_nv, d_max_distance);
+	initVar<<<(nv + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_dist, d_nv);
 
 	cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 
@@ -258,8 +217,7 @@ void denemebf(const int *row_ptr, const int *col_ind, const int *row_ind, const 
 	int round = 1;
 	int temp = 0;
 	
-	
-	
+
 	// no approximation. Both signals are negative
 	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process) { temp += size;
 
@@ -269,43 +227,11 @@ void denemebf(const int *row_ptr, const int *col_ind, const int *row_ind, const 
 
 		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
 
-		cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
+		relaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
 
 		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
 
 		(*iter) ++;
-
-
-		printf("size: %i\n", size);
-
-		size = *nextSize;
-		*nextSize = 0;
-		std::swap(d_queue, d_nextQueue); // swap frontiers
-
-
-		//printf("round: %i\n", round);
-
-		(*appr_vals)[2] = round;
-		round++;
-
-	}
-	
-/*
-	//eliminate atomic in from kernel code
-	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && signal_partial_graph_process) { temp += size;
-
-		//printf("NO APPR\n");
-
-		//cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
-
-		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
-		//(*iter) ++;
 
 
 		printf("size: %i\n", size);
@@ -316,83 +242,10 @@ void denemebf(const int *row_ptr, const int *col_ind, const int *row_ind, const 
 
 		//printf("round: %i\n", round);
 
-		//(*appr_vals)[2] = round;
+		(*appr_vals)[2] = round;
 		round++;
 
 	}
-*/	
-	
-
-	// If reduce signal is negative && partial graph processing signal positive
-	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && signal_partial_graph_process) { temp += size;
-
-		//printf("PARTIAL_SIGNAL APPR\n");
-
-		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter);
-
-		//cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
-		(*iter) ++;
-
- 		
-		
-
-		
-		std::swap(d_queue, d_nextQueue); // swap frontiers
-
-
-		cudasubset_of_vertices<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_nextSize, d_percentage, d_queue, d_subset_queue);
-
-		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
-		std::swap(d_queue, d_subset_queue);
-
-		printf("size: %i\n", size);
-		
-		//cudasubset_of_vertices(&size, percentage, &d_queue);
-		
-		size = *nextSize;
-		*nextSize = 0;
-
-		round++;
-
-	}
-
-	
-	
-	//If reduce signal is positive && partial process signal negative
-	while((round < iter_num+1) && signal_reduce_execution) { temp += size;
-
-		//printf("REDUCE_SIGNAL APPR + PARTIAL_SIGNAL APPR\n");
-
-		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter);
-
-		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
-		(*iter) ++;
-
-
-		printf("size: %i\n", size);
-
-		size = *nextSize;
-		*nextSize = 0;
-		std::swap(d_queue, d_nextQueue); // swap frontiers
-
-		//printf("new size: %i\n", size);
-		//printf("round:%i, iter_num:%i\n", round,iter_num+1);
-
-		round++;
-
-	}
-	
 
 	//printf("total size: %i\n", temp);
 
@@ -408,6 +261,7 @@ void denemebf(const int *row_ptr, const int *col_ind, const int *row_ind, const 
 
 
 	// check for negative cycles
+
 	int neg_cycle = false;
 
 	for (int v2 = 0; v2 < nv; v2++)
@@ -428,7 +282,7 @@ void denemebf(const int *row_ptr, const int *col_ind, const int *row_ind, const 
 		if(neg_cycle)
 			break;
 	}
-
+	printf("NEGATIVE CYCLE CHECK: %i\n", neg_cycle);
 
 	*distance = (int*)malloc((nv+1)*sizeof(int)); 
 
