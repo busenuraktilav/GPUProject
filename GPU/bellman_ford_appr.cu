@@ -84,7 +84,9 @@ __global__ void cudarelaxAtom(int *row_ptr, int *col_ind, int *weights, int *que
     }
 }
 
-__global__ void cudarelaxAtomicMoreEdges(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter, int *min_edges) 
+__global__ void cudarelaxAtomicMoreEdges(int *row_ptr, int *col_ind, int *weights, int *queue, 
+	                                     int *nextQueue, int size, int* nextSize, int2* distance, 
+	                                     int *iter, int *min_edges) 
 {
 
     int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
@@ -196,7 +198,9 @@ __global__ void cudasubset_of_vertices(int *size, float *percentage, int *queue,
 
 extern "C"
 
-void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals, int max_distance)
+void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, 
+	        int **distance, int **previous, const int nv, const int ne, int source, 
+	        float **appr_vals, int max_distance, float *time)
 {
 
 	// Initialize GPU variables
@@ -309,7 +313,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 	
 	// no approximation. Both signals are negative
-	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process) { temp += size;
+	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process && !min_edges) { temp += size;
 
 		//printf("NO APPR\n");
 
@@ -321,7 +325,39 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		//cudarelaxAtomEstimate<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
 
-		//cudarelaxAtomicMoreEdges<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter, d_min_edges); 
+		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+		(*iter) ++;
+
+
+		printf("size: %i\n", size);
+
+		size = *nextSize;
+		*nextSize = 0;
+		std::swap(d_queue, d_nextQueue); // swap frontiers
+
+
+		//printf("round: %i\n", round);
+
+		(*appr_vals)[2] = round;
+		round++;
+
+	}
+
+
+	//min edges to process signal is active. only some edges are processed in kernel
+
+	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process && min_edges) { temp += size;
+
+		//printf("NO APPR\n");
+
+		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+		//cudarelaxAtomEstimate<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
+
+		cudarelaxAtomicMoreEdges<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter, d_min_edges); 
 
 		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
 
@@ -382,7 +418,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 
 	//If reduce signal is positive && partial process signal negative
-	while((round < iter_num+1) && signal_reduce_execution) { temp += size;
+	while((round < iter_num+1) && signal_reduce_execution && !signal_partial_graph_process) { temp += size;
 
 		//printf("REDUCE_SIGNAL APPR + PARTIAL_SIGNAL APPR\n");
 
@@ -462,8 +498,23 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	cudaCheck(cudaFree(d_col_ind));
 	cudaCheck(cudaFree(d_weights));
 	cudaCheck(cudaFree(d_dist));
+	cudaCheck(cudaFree(d_nv));
+	cudaCheck(cudaFree(d_max_distance));
+	cudaCheck(cudaFree(d_queue));
+	cudaCheck(cudaFree(d_nextQueue));
+	cudaCheck(cudaFree(d_nextSize));
+	cudaCheck(cudaFree(d_iter));
+	cudaCheck(cudaFree(d_subset_queue));
+	cudaCheck(cudaFree(d_min_edges));
 
 
 	printf("GPU SBF time(ms): %f\n", elapsed);
+
+	*time = elapsed;
+
+
+	
+	
+
 	
 }
