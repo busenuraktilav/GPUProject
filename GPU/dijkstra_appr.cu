@@ -24,8 +24,8 @@ extern "C" {
 // This is Algorithm 4 in the paper
 
 __global__  void cudaSSSPKernel1 ( int *row_ptr, int *col_ind, int *weights,
-                                     int *visited, int *distance, unsigned int *temp_distance,
-                                     int nv, int ne )
+                                   int *visited, int *distance, unsigned int *temp_distance,
+                                   int nv, int ne )
 {
     unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -57,11 +57,9 @@ __global__  void cudaSSSPKernel1 ( int *row_ptr, int *col_ind, int *weights,
 // This is Algorithm 5 in the paper.  
 
 __global__  void cudaSSSPKernel2 ( int *row_ptr, int *col_ind, int *weights,
-                                     int *visited, int *distance, unsigned int *temp_distance)
+                                   int *visited, int *distance, unsigned int *temp_distance)
 {
     unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
-
-    //printf("INSIDE KERNEL2\n");
 
     if (distance[tid] > temp_distance[tid])
     {
@@ -108,7 +106,8 @@ __global__  void cudaSSSPKernel1MoreEdges ( int *row_ptr, int *col_ind, int *wei
     }
 }
 
-__global__ void cudaInitDistance(int *distance, unsigned int *temp_distance, int *visited, int *nv, int *max_distance)
+__global__ void cudaInitDistance(int *distance, unsigned int *temp_distance, int *visited, 
+	                             int *nv, int *max_distance)
 {
 	int bdim = blockDim.x, gdim = gridDim.x, bid = blockIdx.x, tid = threadIdx.x;
 	int i = bdim * bid + tid;
@@ -144,7 +143,9 @@ bool visitEmpty(int *visited, int count)
 extern "C"
 
 
-void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals, int max_distance, float *time)
+void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **distance, 
+	         int **previous, const int nv, const int ne, int source, float **appr_vals, 
+	         int max_distance, float *time)
 {
 	// Initialize GPU variables
 	int *d_row_ptr, *d_col_ind, *d_weights, *d_distance, *d_previous, *d_visited, *d_nv, *d_ne,

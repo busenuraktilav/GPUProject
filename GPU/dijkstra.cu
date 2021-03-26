@@ -31,28 +31,20 @@ __global__  void CUDA_SSSP_KERNEL1( int *row_ptr, int *col_ind, int *weights,
     	//printf("inside kernel1: %i\n", tid);
         visited[tid] = 0;
 
-        int edgeStart = row_ptr[tid];
-        int edgeEnd;
-
-        if (tid + 1 < (nv))
-        {
-            edgeEnd = row_ptr[tid + 1];
-        }
-        else
-        {
-            edgeEnd = ne;
-        }
-
-        //printf("edgeStart: %i, edgeEnd: %i\n", edgeStart, edgeEnd);
-
-        for(int edge = edgeStart; edge < edgeEnd; edge++)
+        for(int edge = row_ptr[tid]; edge < row_ptr[tid + 1]; edge++)
         {
             int nid = col_ind[edge];
 
-            if (temp_distance[nid] > (distance[tid] + weights[edge]))
+            int w = weights[edge];
+            int du = distance[tid];
+            int newDist = du + w;
+
+            //if (temp_distance[nid] > (distance[tid] + weights[edge]))
+            if ((temp_distance[nid] > newDist) && (du != INT_MAX))
             {
-                temp_distance[nid] = (distance[tid] + weights[edge]);
+                //temp_distance[nid] = (distance[tid] + weights[edge]);
                 //printf("temp_distance[%i]: %i\n", nid, temp_distance[nid]);
+            	atomicExch(&temp_distance[nid], newDist);
             }
         }
     }
@@ -202,8 +194,7 @@ void sdj(const int *row_ptr, const int *col_ind, const int *weights, int **dista
 	cudaCheck(cudaFree(d_distance));
 	cudaCheck(cudaFree(d_previous));
 
-	//printf("GPU SDJ time: %f\n", elapsed/1000);
+	printf("GPU SDJ time: %f\n", elapsed/1000);
 
 	*time = elapsed;
 }
-

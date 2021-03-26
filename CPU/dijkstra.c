@@ -5,14 +5,14 @@
 #include "dijkstra.h"
 #include "heap.h"
 
-void dijkstra(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **distance, int **previous, int nv, int ne, int start)
+void dijkstra(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **distance, int **previous, int nv, int ne, int start, int *count)
 {
 	*distance = (int *)malloc(nv * sizeof(int));
 	*previous = (int *)malloc(nv * sizeof(int));
 
-	Heap *h = create_heap(nv);
+	Heap *h = create_heap(nv+1);
 
-	for(int count, v = 0; v < nv; v++)
+	for(int count, v = 0; v < nv+1; v++)
 	{
 		(*distance)[v] = INT_MAX;
 		(*previous)[v] = -1;
@@ -33,14 +33,14 @@ void dijkstra(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **
 		int u = minNode->vertex_num;
 		int e = (*row_ptr)[u+1] - (*row_ptr)[u];
 
-		printf("size of heap: %i, min_node_vertex_num: %i, minNode->distance: %i\n", h->count, u, minNode->distance);
+		//printf("size of heap: %i, min_node_vertex_num: %i, minNode->distance: %i, e: %i (*row_ptr)[u+1]: %i, (*row_ptr)[u]: %i\n", h->count, u, minNode->distance, e, (*row_ptr)[u+1], (*row_ptr)[u]);
 
-		//if (minNode->distance == INT_MAX)
-		//	break;
+		if (minNode->distance == INT_MAX)
+			break;
 
 		for (int i = 0; i < e; i++)
 		{
-			printf("inside cpu dijkstra: %i, (*distance)[%i]: %i\n", i, u, (*distance)[u]);
+			//printf("inside cpu dijkstra: %i, (*distance)[%i]: %i\n", i, u, (*distance)[u]);
 			int tempDistance = (*distance)[u] + (*weights)[(*row_ptr)[u]+i];
 
 			if((*distance)[u] != INT_MAX)
@@ -57,9 +57,16 @@ void dijkstra(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **
 		}
 	}
 
+	/*
+	//int count = 0;
 	for (int i = 0; i < nv; ++i)
 	{
-		printf("%i\n", (*distance)[i]);
-	}
+		if((*distance)[i] != INT_MAX){
+			//printf("(*distance)[%i]: %i\n", i, (*distance)[i]);
+			(*count)++;
+		}
 
+	}
+	//printf("count: %i\n", *count);
+	*/
 }

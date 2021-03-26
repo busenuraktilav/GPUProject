@@ -7,7 +7,6 @@
 #include <math.h>
 #include <limits.h>
 #include <string.h>
-#include <stdbool.h>
 
 
 float relative_error(int **arr1, int **arr2, int size)
@@ -29,8 +28,11 @@ float relative_error(int **arr1, int **arr2, int size)
 			err = abs((*arr1)[i] - (*arr2)[i]);
 			actual_val = (*arr1)[i];
 			
-			if(!isnan(err/actual_val)){
+			if(!isnan(err/actual_val) && actual_val){
 				error += err/actual_val;
+			}
+			else if (!isnan(err/actual_val) && !actual_val){
+				error += (err/abs((*arr1)[i] + (*arr2)[i]))*2;
 			}
 		}
 	}
@@ -156,7 +158,7 @@ void appr_graph_rep(int **row_ptr, int **col_ind, int **weights, int *nv, int *n
 	}
 }
 
-int write_distance(const char *filename, int *distance, int *iter_num, int nv)
+int write_distance(const char *filename, int *distance, int *iter_num, int *max_degree, int nv)
 {
 	FILE *fp = fopen(filename, "w");
 
@@ -165,6 +167,7 @@ int write_distance(const char *filename, int *distance, int *iter_num, int nv)
 
 
 	fprintf(fp, "%d\n", *iter_num);
+	fprintf(fp, "%d\n", *max_degree);
 
 	for (int i = 0; i < nv; i++)
 	{
@@ -176,7 +179,7 @@ int write_distance(const char *filename, int *distance, int *iter_num, int nv)
 	return 1;
 }
 
-int read_distance(const char *filename, int **distance, int *iter_num, int nv)
+int read_distance(const char *filename, int **distance, int *iter_num, int *max_degree, int nv)
 {
 	FILE *fp = fopen(filename, "r");
 	char line[1025];
@@ -194,6 +197,8 @@ int read_distance(const char *filename, int **distance, int *iter_num, int nv)
 
 	fgets(line, 1025, fp);
 	sscanf(line, "%d", iter_num);
+	fgets(line, 1025, fp);
+	sscanf(line, "%d", max_degree);
 
 	for (i = 0; i < nv; ++i)
 	{
@@ -205,3 +210,27 @@ int read_distance(const char *filename, int **distance, int *iter_num, int nv)
 
 	return 1;
 }
+
+int write_performance_results(const char *filename, int nv, int ne, int iter_num, int max_degree, 
+	                          int min_edge, float percentage, bool signal_originalDistance, 
+	                          bool signal_kernelMinEdge, bool signal_appr_attr, bool signal_reduce_execution, 
+	                          bool signal_partial_graph_process, float error, float time)
+{
+	FILE *fp = fopen(filename, "at");
+
+	if(fp == NULL)
+		return -1;
+
+	fprintf(fp, "\n%d,%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%f,%f", nv, ne, iter_num, max_degree, min_edge, 
+		                                            percentage, signal_originalDistance, 
+		                                            signal_kernelMinEdge, signal_appr_attr,
+		                                            signal_reduce_execution, signal_partial_graph_process,
+		                                            error, time);
+
+
+	fclose(fp);
+
+	return 1;
+}
+
+

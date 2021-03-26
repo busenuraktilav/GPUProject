@@ -122,7 +122,7 @@ __global__ void subset_of_vertices(int *size, float *percentage, int *queue, int
 
 extern "C"
 
-void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals)
+void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals, float *time)
 {
 
 	// Initialize GPU variables
@@ -300,5 +300,7 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 
 
 	printf("GPU SBF time(ms): %f\n", elapsed);
+
+	*time = elapsed;
 	
 }

@@ -146,26 +146,8 @@ void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **d
 
 	printf("neg_edge_count: %i\n", neg_edge_count);
 
-	/*
-
-	for (int i = 0; i < 1; i++)
-	{
-
-		for (int j = 0; j < nv; j++){
-			visited[j] = 0;
-		}
-
-		printf("source: %i\n", source);
-
-		visited[source] = 1;
-		(*distance)[source] = 0;
-
-		cudaCheck(cudaMemcpy(d_visited, visited, nv*sizeof(int), cudaMemcpyHostToDevice));
-	*/
-
 
 	while((*count) != (k+2))
-    //while(!visited_empty(visited, nv))
     {
         // execute the kernel
         CUDA_KERNEL1<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
@@ -182,8 +164,7 @@ void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **d
     
     }
 
-	    
-	//}
+
 
 	printf("count: %i\n", *count);
 	
@@ -194,13 +175,6 @@ void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	
 	//Copy outputs to host
 	cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-	//cudaMemcpy(*previous, d_previous, nv*sizeof(int), cudaMemcpyDeviceToHost);
-
-	for (int i = 0; i < nv; ++i)
-	{
-		//if ((*distance)[i] != INT_MAX)
-			//printf("(*distance)[%i]: %i\n", i, (*distance)[i]);
-	}
 
 
 	// Deallocation
@@ -210,28 +184,7 @@ void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	cudaCheck(cudaFree(d_distance));
 	cudaCheck(cudaFree(d_previous));
 
-	printf("GPU SHYBRID time: %f\n", elapsed/1000);
+	printf("GPU SHYBRID time: %f\n", elapsed);
 
 	
 }
-
-/*
-int main(int argc, char const *argv[])
-{
-	const char* file = "../example_graphs/graph_16_16_mix-1-100.txt";
-	
-	int count = 0, start = 123;
-
-	int *row_ptr, *col_ind, *row_ind, *weights, nv, ne, neg_edge_count = 0;
-
-	int *gpu_hybrid_distance, *gpu_hybrid_previous;
-
-	int read = read_graph(file, &row_ptr, &col_ind, &row_ind, &weights, &nv, &ne, &neg_edge_count);
-
-	shybrid(row_ptr, col_ind, weights, &gpu_hybrid_distance, &gpu_hybrid_previous, nv, ne, start, &count, neg_edge_count);
-
-
-	
-	return 0;
-}
-*/

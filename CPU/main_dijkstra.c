@@ -23,7 +23,7 @@ int main(int argc, char const *argv[])
 	//const char* file = "../example_graphs/Trefethen_150.mtx";
 	const char* file = argv[6];
 	const char* distance_file = "../dijkstra_originaldistance.txt";
-	const char* perf_results = "../dijkstra_performance_results.txt";
+	const char* perf_results = "../dijkstra_performance_results.csv";
 
 	
 	
@@ -74,6 +74,15 @@ int main(int argc, char const *argv[])
 
 		//appr_vals = [signal_partial_graph_process, signal_reduce_execution, iter_num, percentage, min_edges_to_process]
 		float *appr_vals = (float*)malloc(5*sizeof(float));
+
+
+		appr_vals[4] = atoi(argv[7]);
+		appr_vals[2] = atoi(argv[8]);
+		appr_vals[3] = atoi(argv[9]);
+
+
+
+
 		
 		if (signal_originalDistance)
 		{
@@ -81,7 +90,7 @@ int main(int argc, char const *argv[])
 			appr_vals[0] = 0;
 			appr_vals[1] = 0;
 			int min_edge = 0;
-			float percentage = 100.0;
+			float percentage = 1.0;
 
 			apprsdj(row_ptr, col_ind, weights, &gpu_dj_distance, &gpu_dj_previous, nv, ne, start, &appr_vals, INT_MAX, &time);
 	
@@ -110,58 +119,22 @@ int main(int argc, char const *argv[])
 
 			appr_vals[0] = 0;
 			appr_vals[1] = 0;
-			int p[9];
-			float percentage = 100.0;
+			float percentage = 1.0;
 			
-			 
-			if (max_degree < 10000){
 
-				for (int i = 1; i < 10; ++i)
-					p[i-1] = (max_degree/100)*i;
-			}
-
-			else if (max_degree < 100000 && max_degree >= 10000){
-				for (int i = 1; i < 10; ++i)
-					p[i-1] = (max_degree/1000)*i*2;
-			}
-
-			else {
-
-				for (int i = 1; i < 10; ++i)
-					p[i-1] = (max_degree/10000)*i*4;
-			}
-
-			for (int i = 0; i < 9; i++)
-			{
-				appr_vals[4] = p[i];
-				printf("%d\n", p[i]);
-
-				apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX, &time);
-
-				float error = relative_error(&gpu_dj_distance, &gpu_appr_dist3, nv);
-
-				init_zero(&gpu_appr_dist3, nv);
-
-				printf("*******ERROR: %f\n", error);
-
-				write_performance_results(perf_results, nv, ne, iter_num, max_degree, 
-	                          p[i], percentage, signal_originalDistance, 
-	                          signal_kernelMinEdge, signal_appr_attr, signal_reduce_execution, 
-	                          signal_partial_graph_process, error, time);
-
-			}
-			
-			/*
-			appr_vals[4] = 10;
-
-			apprsdj(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX, &time);
+			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX, &time);
 
 			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist3, nv);
 
 			init_zero(&gpu_appr_dist3, nv);
 
 			printf("*******ERROR: %f\n", error);
-			*/
+
+			write_performance_results(perf_results, nv, ne, iter_num, max_degree, 
+                          appr_vals[4], percentage, signal_originalDistance, 
+                          signal_kernelMinEdge, signal_appr_attr, signal_reduce_execution, 
+                          signal_partial_graph_process, error, time);	
+
 		}
 		
 		//Calculate approximate values from technique4
@@ -169,7 +142,7 @@ int main(int argc, char const *argv[])
 		if(signal_appr_attr)
 		{
 			int min_edge = 0;
-			float percentage = 100.0;
+			float percentage = 1.0;
 
 			int iter_num;
 		    read_distance(distance_file, &gpu_dj_distance, &iter_num, &max_degree, nv);
@@ -206,7 +179,7 @@ int main(int argc, char const *argv[])
 		if (signal_reduce_execution)
 		{
 			int min_edge = 0;
-			float percentage = 100.0;
+			float percentage = 1.0;
 
 			int iter_num;
 		    read_distance(distance_file, &gpu_dj_distance, &iter_num, &max_degree, nv);
@@ -214,30 +187,20 @@ int main(int argc, char const *argv[])
 			appr_vals[0] = 0;
 			appr_vals[1] = 1;
 
-			int i = 1;
 
-			printf("iter_num: %i\n", iter_num);
+			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, &appr_vals, INT_MAX, &time);
 
-			do {
+			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist1, nv);
 
-				appr_vals[2] = iter_num;
+			init_zero(&gpu_appr_dist1, nv);
 
-				apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, &appr_vals, INT_MAX, &time);
+			printf("*******ERROR: %f\n", error);
 
-				float error = relative_error(&gpu_dj_distance, &gpu_appr_dist1, nv);
+			write_performance_results(perf_results, nv, ne, appr_vals[2], max_degree, 
+                          min_edge, percentage, signal_originalDistance, 
+                          signal_kernelMinEdge, signal_appr_attr, signal_reduce_execution, 
+                          signal_partial_graph_process, error, time);
 
-				init_zero(&gpu_appr_dist1, nv);
-
-				printf("*******ERROR: %f\n", error);
-
-				write_performance_results(perf_results, nv, ne, iter_num, max_degree, 
-	                          min_edge, percentage, signal_originalDistance, 
-	                          signal_kernelMinEdge, signal_appr_attr, signal_reduce_execution, 
-	                          signal_partial_graph_process, error, time);
-
-				iter_num--;
-
-			} while (iter_num >= 0);
 		}
 		
 		
