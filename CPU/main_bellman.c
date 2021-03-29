@@ -6,6 +6,7 @@
 #include <limits.h>
 #include <string.h>
 
+
 #include "../graphio/graphio.h"
 #include "bellman_ford.h"
 #include "dijkstra.h"
@@ -14,14 +15,13 @@
 #include "../GPU/bellman_ford.cuh"
 #include "../GPU/dijkstra.cuh"
 #include "../GPU/hybrid.cuh"
-#include "cpu_utils.h" 
+#include "cpu_utils.h"
 
 
-int main(int argc, char const *argv[])
+void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool signal_appr_attr, 
+	             bool signal_reduce_execution, int signal_partial_graph_process, const char *file,
+	             float min_edges_to_process, float iter_num, float percentage)
 {
-	//const char* file = "../example_graphs/graph_20_16_pos-10.txt";
-	//const char* file = "../example_graphs/Trefethen_150.mtx";
-	const char* file = argv[6];
 	const char* distance_file = "../bellman_originaldistance.txt";
 	const char* perf_results = "../bellman_performance_results.csv";
 
@@ -34,8 +34,6 @@ int main(int argc, char const *argv[])
 	int *gpu_appr_dist1, *gpu_appr_dist2, *gpu_appr_dist3, *gpu_appr_prev1, *gpu_appr_prev2, *gpu_appr_prev3;
 
 	int read = read_graph(file, &row_ptr, &col_ind, &row_ind, &weights, &nv, &ne, &neg_edge_count, &max_weight, &min_weight);
-
-
 
 
 	if(read == 1)
@@ -62,27 +60,13 @@ int main(int argc, char const *argv[])
 		float time = 0;
 
 
-		bool signal_originalDistance = atoi(argv[1]);
-		bool signal_kernelMinEdge = atoi(argv[2]);
-		bool signal_appr_attr = atoi(argv[3]);
-		bool signal_reduce_execution = atoi(argv[4]);
-		int signal_partial_graph_process = atoi(argv[5]);
-
-
-
-		printf("%i, %i, %i, %i, %i\n", signal_originalDistance, signal_kernelMinEdge, signal_appr_attr, signal_reduce_execution, signal_partial_graph_process);
-
-
-
-		//BELLMAN-FORD GPU
-
 		//appr_vals = [signal_partial_graph_process, signal_reduce_execution, iter_num, percentage, min_edges_to_process]
 		float *appr_vals = (float*)malloc(5*sizeof(float));
 
 
-		appr_vals[4] = atoi(argv[7]);
-		appr_vals[2] = atoi(argv[8]);
-		appr_vals[3] = atoi(argv[9]);
+		appr_vals[4] = min_edges_to_process;
+		appr_vals[2] = iter_num;
+		appr_vals[3] = percentage;
 
 
 		if (signal_originalDistance)
@@ -241,5 +225,4 @@ int main(int argc, char const *argv[])
 	}
 
 
-	return 0;
 }
