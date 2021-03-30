@@ -9,7 +9,7 @@
 #include <string.h>
 
 
-float relative_error(int **arr1, int **arr2, int size)
+float relative_error (int **arr1, int **arr2, int size)
 {
 	float err = 0.0;
 	float actual_val = 0.0;
@@ -41,9 +41,7 @@ float relative_error(int **arr1, int **arr2, int size)
 }
 
 
-
-
-void init_zero(int **arr, int size)
+void init_zero (int **arr, int size)
 {
 	for (int i = 0; i < size; i++)
 	{
@@ -53,7 +51,7 @@ void init_zero(int **arr, int size)
 
 
 //Technique 4: round weights to the nearest power of 2
-void approximate_attributes(int **weights, int ne, int *max_weight, int *min_weight)
+void approximate_attributes (int **weights, int ne, int *max_weight, int *min_weight)
 {
 	*max_weight = pow(2,round(log2(*max_weight)));
 	*min_weight = pow(2,round(log2(*min_weight)));
@@ -69,7 +67,7 @@ void approximate_attributes(int **weights, int ne, int *max_weight, int *min_wei
 }
 
 
-int sync_bfs(int *row_ptr, int *col_ind, int nv, int ne, int *level_arr, int source)
+int sync_bfs (int *row_ptr, int *col_ind, int nv, int ne, int *level_arr, int source)
 {
     memset(level_arr, -1, nv * sizeof(int));
     int level = 0;
@@ -100,7 +98,7 @@ int sync_bfs(int *row_ptr, int *col_ind, int nv, int ne, int *level_arr, int sou
 }
 
 
-float jaccard_similarity(int *row_ptr, int *col_ind, int v1, int v2, int *conj, int *diff)
+float jaccard_similarity (int *row_ptr, int *col_ind, int v1, int v2, int *conj, int *diff)
 {
 	int edge_num1 = row_ptr[v1+1] - row_ptr[v1];
 	int edge_num2 = row_ptr[v2+1] - row_ptr[v2];
@@ -119,27 +117,9 @@ float jaccard_similarity(int *row_ptr, int *col_ind, int v1, int v2, int *conj, 
 	return (*conj)/((*conj)+(*diff));
 }
 
-void merge_nodes(int **row_ptr, int **col_ind, int **weights, int *nv, int *ne, int v1, int v2, int conj, int diff)
-{
-	int edge_num_v1 = row_ptr[v1+1] - row_ptr[v1];
-	int edge_num_v2 = row_ptr[v2+1] - row_ptr[v2];
-
-	int merged_edges[conj+diff];
-	int merged_weights[conj+diff];
-	/*
-	for (int i = 0; i < edge_num_v1; i++)
-	{
-		for (int j = 0; j < edge_num_v2; j++)
-		{
-
-		}
-	}
-	*/
-}
-
 
 //Technique 3: Approximate graph representation
-void appr_graph_rep(int **row_ptr, int **col_ind, int **weights, int *nv, int *ne, int similarity_rate)
+void appr_graph_rep (int **row_ptr, int **col_ind, int **weights, int *nv, int *ne, int similarity_rate)
 {
 	int diff = 0; 
 	int conj = 0;
@@ -152,13 +132,13 @@ void appr_graph_rep(int **row_ptr, int **col_ind, int **weights, int *nv, int *n
 
 			if ((v1 != v2) && (js < similarity_rate))
 			{
-				merge_nodes(row_ptr, col_ind, weights, nv, ne, v1, v2, conj, diff);
+				//merge_nodes(row_ptr, col_ind, weights, nv, ne, v1, v2, conj, diff);
 			}
 		}
 	}
 }
 
-int write_distance(const char *filename, int *distance, int *iter_num, int *max_degree, int nv)
+int write_distance (const char *filename, int *distance, int *iter_num, int *max_degree, int nv)
 {
 	FILE *fp = fopen(filename, "w");
 
@@ -179,7 +159,7 @@ int write_distance(const char *filename, int *distance, int *iter_num, int *max_
 	return 1;
 }
 
-int read_distance(const char *filename, int **distance, int *iter_num, int *max_degree, int nv)
+int read_distance (const char *filename, int **distance, int *iter_num, int *max_degree, int nv)
 {
 	FILE *fp = fopen(filename, "r");
 	char line[1025];
@@ -211,22 +191,136 @@ int read_distance(const char *filename, int **distance, int *iter_num, int *max_
 	return 1;
 }
 
+/*
 int write_performance_results(const char *filename, int nv, int ne, int iter_num, int max_degree, 
 	                          int min_edge, float percentage, bool signal_originalDistance, 
 	                          bool signal_kernelMinEdge, bool signal_appr_attr, bool signal_reduce_execution, 
 	                          bool signal_partial_graph_process, float error, float time)
+*/
+int write_time_results (const char *filename, float time)
 {
 	FILE *fp = fopen(filename, "at");
 
 	if(fp == NULL)
 		return -1;
 
-	fprintf(fp, "\n%d,%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%f,%f", nv, ne, iter_num, max_degree, min_edge, 
+	fprintf(fp, "%f\n", time);
+
+	fclose(fp);
+
+	return 1;
+}
+
+
+float find_max_time (float *time, int repeat)
+{
+	float max = 0.0;
+
+	for (int i = 0; i < repeat; ++i)
+	{
+		if (max < time[i])
+			max = time[i];
+	}
+
+	return max;
+}
+
+
+float find_min_time (float *time, int repeat, float max)
+{
+	float min = max;
+
+	for (int i = 0; i < repeat; ++i)
+	{
+		if (min > time[i])
+			min = time[i];
+	}
+
+	return min;	
+}
+
+
+int read_time (const char* filename, float **time, int repeat)
+{
+	FILE *fp = fopen(filename, "r");
+	char line[1025];
+
+	*time = (float *)malloc(repeat*sizeof(float));
+
+	int i, d;
+
+	if(fp == NULL)
+	{
+		printf("File could not be found!");
+		return -1;
+	}
+
+
+	for (i = 0; i < repeat; ++i)
+	{
+		fgets(line, 1025, fp);
+		sscanf(line, "%d", &d);
+
+		(*time)[i] = d;
+	}
+
+	return 1;
+}
+
+
+float find_avg_time (const char *filename, int repeat)
+{
+	float *time, avg;
+	
+	read_time(filename, &time, repeat);
+
+	for (int i = 0; i < repeat; ++i)
+	{
+		avg += time[i];
+	}
+
+	float max = find_max_time(time, repeat);
+	float min = find_min_time(time, repeat, max);
+
+	avg -= max;
+	avg -= min;
+
+	avg = avg/(repeat-2);
+
+	return avg;
+}
+
+
+
+
+
+
+
+int write_performance_results(const char *perf_file, const char *time_file, int nv, int ne, int iter_num, int max_degree, 
+							  int min_edge, float percentage, bool signal_originalDistance, bool signal_kernelMinEdge, 
+							  bool signal_appr_attr, bool signal_reduce_execution, bool signal_partial_graph_process,
+							  float error)
+{
+	int repeat = 10;
+
+	float time = find_avg_time(time_file, repeat);
+
+	FILE *fp = fopen(perf_file, "at");
+
+	if(fp == NULL)
+		return -1;
+
+	//fprintf(fp, "%s\n", "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,Error,executionTime");
+
+	
+	fprintf(fp, "%d,%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%f,%f\n", nv, ne, iter_num, max_degree, min_edge, 
 		                                            percentage, signal_originalDistance, 
 		                                            signal_kernelMinEdge, signal_appr_attr,
 		                                            signal_reduce_execution, signal_partial_graph_process,
 		                                            error, time);
+	
 
+	//fprintf(fp, "%f", time);
 
 	fclose(fp);
 
