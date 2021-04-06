@@ -11,6 +11,7 @@ extern "C" {
 #include <cuda.h>
 #include <cuda_profiler_api.h>
 #include <curand.h>
+#include <omp.h>
 
 #define N_THREADS_PER_BLOCK 128
 
@@ -186,6 +187,7 @@ __global__ void cudasubset_of_vertices(int *size, float *percentage, int *queue,
 
 	int t = (*size) * (*percentage);
 	int temp = t;
+	//printf("temp: %i, size: %i, percentage: %f\n", temp, size, *percentage);
 
 	if (i < t)
 	{
@@ -193,6 +195,7 @@ __global__ void cudasubset_of_vertices(int *size, float *percentage, int *queue,
 	}
 
 	(*size) = temp;
+
 }
 
 
@@ -226,7 +229,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	int signal_partial_graph_process = (*appr_vals)[0];
 	int signal_reduce_execution = (*appr_vals)[1];
 	int iter_num = (*appr_vals)[2];
-	float *percentage = (float*)malloc(nv*sizeof(float));
+	float *percentage = (float*)malloc(sizeof(float));
 	*percentage = (*appr_vals)[3];
 	int min_edges = (*appr_vals)[4];
 
@@ -377,8 +380,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		round++;
 
 	}
-	
-	
+
 	// If reduce signal is negative && partial graph processing signal positive
 	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && signal_partial_graph_process) { temp += size;
 
@@ -390,15 +392,18 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter);
 
-		//cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
 
 		(*iter) ++;
 		
 		std::swap(d_queue, d_nextQueue); // swap frontiers
 
 		size_t n = *nextSize;
+		//size_t n = size;
+		printf("size: %i, nextSize: %i\n", size, *nextSize);
 
-		curandGenerate(gen, d_random_ints, n); //Generate n ints on device
+		curandGenerate(gen, d_random_ints, size); //Generate n ints on device
 
 		cudasubset_of_vertices<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_nextSize, d_percentage, d_queue, d_subset_queue, d_random_ints);
 
@@ -406,7 +411,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		std::swap(d_queue, d_subset_queue);
 
-		printf("size: %i\n", size);
+		printf("size: %i, nextSize: %i\n", size, *nextSize);
 				
 		size = *nextSize;
 		*nextSize = 0;
