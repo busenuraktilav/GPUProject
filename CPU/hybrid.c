@@ -4,8 +4,6 @@
 #include <limits.h>
 
 #include "hybrid.h"
-//#include "bellman_ford.h"
-//#include "dijkstra.h"
 #include "heap.h"
 
 
@@ -14,7 +12,8 @@ running time bound of Bellman–Ford for graphs with a sparse distribution of ne
 edges. The algorithm iterates Dijkstra several times without re-initializing the tentative
 value d ( v ) at vertices. At most k + 2 iterations solve the problem, if for any vertex reachable
 from the source, there exists a shortest path to it with at most k negative cost edges.*/
-void hybrid(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **distance, int **previous, int nv, int ne, int start)
+void hybrid(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **distance, 
+	        int **previous, int nv, int ne, int start)
 {
 	*distance = (int *)malloc(nv * sizeof(int));
 	*previous = (int *)malloc(nv * sizeof(int));

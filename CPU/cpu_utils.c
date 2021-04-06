@@ -291,11 +291,6 @@ float find_avg_time (const char *filename, int repeat)
 }
 
 
-
-
-
-
-
 int write_performance_results(const char *perf_file, const char *time_file, int nv, int ne, int iter_num, int max_degree, 
 							  int min_edge, float percentage, bool signal_originalDistance, bool signal_kernelMinEdge, 
 							  bool signal_appr_attr, bool signal_reduce_execution, bool signal_partial_graph_process,

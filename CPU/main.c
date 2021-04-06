@@ -4,6 +4,7 @@
 
 #include "bellman_ford.h"
 #include "dijkstra.h"
+#include "hybrid.h"
 #include "cpu_utils.h"
 
 
@@ -19,10 +20,9 @@ int main(int argc, char const *argv[])
 	const char* file = argv[6];
 	float min_edges_to_process = atoi(argv[7]);
 	float iter_num = atoi(argv[8]);
-	float percentage = atoi(argv[9]);
+	float percentage = atof(argv[9]);
 	bool write = atoi(argv[10]);
 	int algorithm_option = atoi(argv[11]);
-
 
 
 	switch (algorithm_option) 
@@ -39,6 +39,13 @@ int main(int argc, char const *argv[])
 			main_dijkstra(signal_originalDistance, signal_kernelMinEdge, signal_appr_attr, 
 		                 signal_reduce_execution, signal_partial_graph_process, file,
 		                 min_edges_to_process, iter_num, percentage, write);
+			break;
+
+		case 3:
+
+			main_hybrid(signal_originalDistance, signal_kernelMinEdge, signal_appr_attr, 
+	            	    signal_reduce_execution, signal_partial_graph_process, file,
+	                    min_edges_to_process, iter_num, percentage, write);
 			break;
 
 		default:
