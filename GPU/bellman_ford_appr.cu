@@ -85,6 +85,105 @@ __global__ void cudarelaxAtom(int *row_ptr, int *col_ind, int *weights, int *que
     }
 }
 
+
+__global__ void cudarelaxAtomicAddBlock(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter) 
+{
+
+    int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
+
+    if (tid < size) { 
+        
+    	u = queue[tid];
+    	du = distance[u].x;
+
+        for (int e = row_ptr[u]; e < row_ptr[u + 1]; e++) {
+            
+            v = col_ind[e];
+            w = weights[e];
+            dv = distance[v].x;
+            add = du + w;
+
+            if (add < dv && du != INT_MAX)
+            {
+            	atomicMin(&distance[v].x,add);
+
+            	if(distance[v].y != *iter)
+            	{
+	            	atomicMax(&distance[v].y,*iter);
+	            	index = atomicAdd_block(nextSize, 1);
+					nextQueue[index] = v;
+				}
+            }
+        }
+    }
+}
+
+
+__global__ void cudarelaxAtomicMinBlock(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter) 
+{
+
+    int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
+
+    if (tid < size) { 
+        
+    	u = queue[tid];
+    	du = distance[u].x;
+
+        for (int e = row_ptr[u]; e < row_ptr[u + 1]; e++) {
+            
+            v = col_ind[e];
+            w = weights[e];
+            dv = distance[v].x;
+            add = du + w;
+
+            if (add < dv && du != INT_MAX)
+            {
+            	atomicMin_block(&distance[v].x,add);
+
+            	if(distance[v].y != *iter)
+            	{
+	            	atomicMax(&distance[v].y,*iter);
+	            	index = atomicAdd(nextSize, 1);
+					nextQueue[index] = v;
+				}
+            }
+        }
+    }
+}
+
+
+__global__ void cudarelaxAtomicMaxBlock(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter) 
+{
+
+    int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
+
+    if (tid < size) { 
+        
+    	u = queue[tid];
+    	du = distance[u].x;
+
+        for (int e = row_ptr[u]; e < row_ptr[u + 1]; e++) {
+            
+            v = col_ind[e];
+            w = weights[e];
+            dv = distance[v].x;
+            add = du + w;
+
+            if (add < dv && du != INT_MAX)
+            {
+            	atomicMin(&distance[v].x,add);
+
+            	if(distance[v].y != *iter)
+            	{
+	            	atomicMax_block(&distance[v].y,*iter);
+	            	index = atomicAdd(nextSize, 1);
+					nextQueue[index] = v;
+				}
+            }
+        }
+    }
+}
+
 __global__ void cudarelaxAtomicMoreEdges(int *row_ptr, int *col_ind, int *weights, int *queue, 
 	                                     int *nextQueue, int size, int* nextSize, int2* distance, 
 	                                     int *iter, int *min_edges) 
@@ -93,7 +192,7 @@ __global__ void cudarelaxAtomicMoreEdges(int *row_ptr, int *col_ind, int *weight
     int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
 
     if (tid < size) { 
-        
+
     	u = queue[tid];
     	du = distance[u].x;
 
@@ -114,6 +213,7 @@ __global__ void cudarelaxAtomicMoreEdges(int *row_ptr, int *col_ind, int *weight
 	            	{
 		            	atomicMax(&distance[v].y,*iter);
 		            	index = atomicAdd(nextSize, 1);
+		            	//printf("nextSize: %i\n", nextSize);
 						nextQueue[index] = v;
 					}
 	            }
@@ -121,48 +221,6 @@ __global__ void cudarelaxAtomicMoreEdges(int *row_ptr, int *col_ind, int *weight
 	    }
     }
 }
-
-
-__global__ void cudarelaxAtomEstimate(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter) 
-{
-
-    int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
-
-    if (tid < size) { 
-        
-    	u = queue[tid];
-    	du = distance[u].x;
-
-    	//distance[tid].y = 0;
-    	//printf("distance[%i].y: %i\n", tid, distance[tid].y );
-
-        for (int e = row_ptr[u]; e < row_ptr[u + 1]; e++) {
-            
-            v = col_ind[e];
-            w = weights[e];
-            dv = distance[v].x;
-            add = du + w;
-
-            distance[v].y = 0;
-            //printf("distance[%i].y: %i\n", v, distance[v].y );
-
-            if (add < dv && du != INT_MAX)
-            {
-            	atomicMin(&distance[v].x,add);
-            	//printf("distance[%i].y: %i\n", v, distance[v].y );
-
-            	if(distance[v].y == 0)
-            	{
-            		//printf("INSIDE IF: %i\n", tid);
-	            	(distance[v].y)+=1;
-	            	index = atomicAdd(nextSize, 1);
-					nextQueue[index] = v;
-				}
-            }
-        }
-    }
-}
-
 
 __global__ void cudainitVar(int2 *distance, int *nv, int *max_distance)
 {
@@ -187,11 +245,20 @@ __global__ void cudasubset_of_vertices(int *size, float *percentage, int *queue,
 
 	int t = (*size) * (*percentage);
 	int temp = t;
-	//printf("temp: %i, size: %i, percentage: %f\n", temp, size, *percentage);
+	if (i == 1)
+	{
+		printf("temp: %i, size: %i, percentage: %f\n", temp, *size, *percentage);
+	}
+	                     
 
 	if (i < t)
 	{
 		subset_queue[i] = (queue)[random_ints[i]%(t)];
+		if ((*percentage) == 0.1 )
+		{
+			printf("subset_queue[%i]: %i , (queue)[random_ints[%i]=%i % (t=%i)]: %i\n", i, subset_queue[i], i, random_ints[i], t, (queue)[random_ints[i]%(t)]);
+		}
+		
 	}
 
 	(*size) = temp;
@@ -213,7 +280,6 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	int2* d_dist;
 	
 
-
 	int2* dist = (int2*)malloc(nv*sizeof(int2));
 
 	
@@ -224,7 +290,6 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	curandCreateGenerator(&gen, CURAND_RNG_PSEUDO_DEFAULT); //Create pseudo-random number generator
 	    
 
-
 	//SIGNALSs
 	int signal_partial_graph_process = (*appr_vals)[0];
 	int signal_reduce_execution = (*appr_vals)[1];
@@ -232,6 +297,9 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	float *percentage = (float*)malloc(sizeof(float));
 	*percentage = (*appr_vals)[3];
 	int min_edges = (*appr_vals)[4];
+	int signal_atomicMinBlock = (*appr_vals)[5];
+	int signal_atomicMaxBlock = (*appr_vals)[6];
+	int signal_atomicAddBlock = (*appr_vals)[7];
 
 
 	cudaCheck(cudaMalloc((void **)&d_row_ptr, (nv+1)*sizeof(int)));
@@ -248,6 +316,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	cudaCheck(cudaMemcpy(d_min_edges, &min_edges, sizeof(int), cudaMemcpyHostToDevice));
 
 
+	/*
 	cudaEvent_t start;
 	cudaEvent_t stop;
 	cudaCheck(cudaEventCreate(&start));
@@ -256,6 +325,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 	cudaProfilerStart();
 
+	*/
 
 	cudainitVar<<<(nv + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_dist, d_nv, d_max_distance);
 
@@ -284,7 +354,6 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	int *iter = (int*)malloc(sizeof(int));
 	*iter = 2;
 
-
 	// Allocate device
 	
 	cudaCheck(cudaMalloc((void **)&d_nextSize, sizeof(int)));
@@ -302,6 +371,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_percentage, percentage, sizeof(float), cudaMemcpyHostToDevice));
 
+	float elapsed;
 
 	int size = srcNeigh;
 	int *nextSize = (int*)malloc(sizeof(int));
@@ -314,156 +384,357 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
 
-	
-	// no approximation. Both signals are negative
-	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process && !min_edges) { temp += size;
-
-		//printf("NO APPR\n");
-
-		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
-
-		//cudarelaxAtomEstimate<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
-
-		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
-		(*iter) ++;
-
-
-		printf("size: %i\n", size);
-
-		size = *nextSize;
-		*nextSize = 0;
-		std::swap(d_queue, d_nextQueue); // swap frontiers
-
-
-		//printf("round: %i\n", round);
-
-		(*appr_vals)[2] = round;
-		round++;
-
-	}
-
-
-	//min edges to process signal is active. only some edges are processed in kernel
-
-	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process && min_edges) { temp += size;
-
-		//printf("NO APPR\n");
-
-		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
-
-		//cudarelaxAtomEstimate<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
-
-		cudarelaxAtomicMoreEdges<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter, d_min_edges); 
-
-		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
-		(*iter) ++;
-
-
-		printf("size: %i\n", size);
-
-		size = *nextSize;
-		*nextSize = 0;
-		std::swap(d_queue, d_nextQueue); // swap frontiers
-
-
-		//printf("round: %i\n", round);
-
-		(*appr_vals)[2] = round;
-		round++;
-
-	}
-
-	// If reduce signal is negative && partial graph processing signal positive
-	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && signal_partial_graph_process) { temp += size;
-
-		//printf("PARTIAL_SIGNAL APPR\n");
-
-		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter);
-
-		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
-
-		(*iter) ++;
-		
-		std::swap(d_queue, d_nextQueue); // swap frontiers
-
-		size_t n = *nextSize;
-		//size_t n = size;
-		printf("size: %i, nextSize: %i\n", size, *nextSize);
-
-		curandGenerate(gen, d_random_ints, size); //Generate n ints on device
-
-		cudasubset_of_vertices<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_nextSize, d_percentage, d_queue, d_subset_queue, d_random_ints);
-
-		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
-		std::swap(d_queue, d_subset_queue);
-
-		printf("size: %i, nextSize: %i\n", size, *nextSize);
-				
-		size = *nextSize;
-		*nextSize = 0;
-
-		round++;
-
-	}
-	
-
-
-	//If reduce signal is positive && partial process signal negative
-	while((round < iter_num+1) && signal_reduce_execution && !signal_partial_graph_process) { temp += size;
-
-		//printf("REDUCE_SIGNAL APPR + PARTIAL_SIGNAL APPR\n");
-
-		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
-
-		cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter);
-
-		cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
-
-		(*iter) ++;
-
-
-		printf("size: %i\n", size);
-
-		size = *nextSize;
-		*nextSize = 0;
-		std::swap(d_queue, d_nextQueue); // swap frontiers
-
-		round++;
-
-	}
-	
-
-	// Copy outputs to host
-	cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
-	
-	cudaProfilerStop();
-
-	cudaCheck(cudaEventRecord(stop, 0));
-	cudaCheck(cudaEventSynchronize(stop));
-	float elapsed;
-	cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
-
-
-	for (int i = 0; i < 50; i++)
+	if (!signal_reduce_execution && !signal_partial_graph_process && !min_edges && !signal_atomicMinBlock && !signal_atomicMaxBlock && !signal_atomicAddBlock)
 	{
-		//printf("dist[%i]: %i\n", i, dist[i].x);
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		cudaProfilerStart();
+
+		// no approximation. Both signals are negative
+		while((size > 0) && (round < nv) && temp < ne) { temp += size;
+
+			//printf("NO APPR\n");
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			(*iter) ++;
+
+
+			printf("size: %i\n", size);
+
+			size = *nextSize;
+			*nextSize = 0;
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+
+			(*appr_vals)[2] = round;
+			round++;
+
+		}
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
 	}
+
+
+	
+	if (min_edges)
+	{
+		//min edges to process signal is active. only some edges are processed in kernel
+
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		cudaProfilerStart();
+
+		while((size > 0) && (round < nv) && temp < ne) { temp += size;
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtomicMoreEdges<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter, d_min_edges); 
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			(*iter) ++;
+
+			printf("size: %i\n", size);
+
+			size = *nextSize;
+			*nextSize = 0;
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+			
+
+			//printf("round: %i\n", round);
+
+			(*appr_vals)[2] = round;
+			round++;
+
+		}
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+	}
+
+	
+	if (signal_partial_graph_process)
+	{
+		// If reduce signal is negative && partial graph processing signal positive
+
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		cudaProfilerStart();
+
+
+		while((size > 0) && (round < nv) && temp < ne) { temp += size;
+
+			//printf("PARTIAL_SIGNAL APPR\n");
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter);
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+
+			(*iter) ++;
+			
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+			curandGenerate(gen, d_random_ints, size); //Generate n ints on device
+
+			cudasubset_of_vertices<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_nextSize, d_percentage, d_queue, d_subset_queue, d_random_ints);
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			std::swap(d_queue, d_subset_queue);
+
+			printf("size: %i\n", size);
+					
+			size = *nextSize;
+			*nextSize = 0;
+
+			round++;
+
+		}
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+	}
+	
+	
+	if (signal_reduce_execution)
+	{
+		//If reduce signal is positive && partial process signal negative
+
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		cudaProfilerStart();
+
+
+		while((round < iter_num+1) ) { temp += size;
+
+			//printf("REDUCE_SIGNAL APPR + PARTIAL_SIGNAL APPR\n");
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter);
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			(*iter) ++;
+
+
+			printf("size: %i\n", size);
+
+			size = *nextSize;
+			*nextSize = 0;
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+			round++;
+
+		}
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+	}
+
+
+	
+	if (signal_atomicAddBlock)
+	{
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		cudaProfilerStart();
+
+		
+		while((size > 0) && (round < nv) && temp < ne) { temp += size;
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtomicAddBlock<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			(*iter) ++;
+
+
+			printf("size: %i\n", size);
+
+			size = *nextSize;
+			*nextSize = 0;
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+
+			(*appr_vals)[2] = round;
+			round++;
+
+		}
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+	}
+
+	
+	if (signal_atomicMinBlock)
+	{
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		cudaProfilerStart();
+
+		
+		while((size > 0) && (round < nv) && temp < ne) { temp += size;
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtomicMinBlock<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			(*iter) ++;
+
+
+			printf("size: %i\n", size);
+
+			size = *nextSize;
+			*nextSize = 0;
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+
+			(*appr_vals)[2] = round;
+			round++;
+
+		}
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+	}
+
+
+	if (signal_atomicMaxBlock)
+	{
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		cudaProfilerStart();
+
+		
+		while((size > 0) && (round < nv) && temp < ne) { temp += size;
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtomicMaxBlock<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter); 
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			(*iter) ++;
+
+
+			printf("size: %i\n", size);
+
+			size = *nextSize;
+			*nextSize = 0;
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+
+			(*appr_vals)[2] = round;
+			round++;
+
+		}
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+	}
+	
 
 	// check for negative cycles
 	int neg_cycle = false;
@@ -516,10 +787,5 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	printf("GPU SBF time(ms): %f\n", elapsed);
 
 	*time = elapsed;
-
-
-	
-	
-
 	
 }

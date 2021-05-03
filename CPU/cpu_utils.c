@@ -294,7 +294,7 @@ float find_avg_time (const char *filename, int repeat)
 int write_performance_results(const char *perf_file, const char *time_file, int nv, int ne, int iter_num, int max_degree, 
 							  int min_edge, float percentage, bool signal_originalDistance, bool signal_kernelMinEdge, 
 							  bool signal_appr_attr, bool signal_reduce_execution, bool signal_partial_graph_process,
-							  float error)
+							  bool signal_atomicMinBlock, bool signal_atomicMaxBlock, bool signal_atomicAddBlock, float error)
 {
 	int repeat = 10;
 
@@ -304,22 +304,108 @@ int write_performance_results(const char *perf_file, const char *time_file, int 
 
 	if(fp == NULL)
 		return -1;
-
-	//fprintf(fp, "%s\n", "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,Error,executionTime");
-
 	
-	fprintf(fp, "%d,%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%f,%f\n", nv, ne, iter_num, max_degree, min_edge, 
-		                                            percentage, signal_originalDistance, 
-		                                            signal_kernelMinEdge, signal_appr_attr,
-		                                            signal_reduce_execution, signal_partial_graph_process,
-		                                            error, time);
+	fprintf(fp, "%d,%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f\n", nv, ne, iter_num, max_degree, min_edge, 
+		                                            percentage, signal_originalDistance, signal_kernelMinEdge, 
+		                                            signal_appr_attr, signal_reduce_execution, 
+		                                            signal_partial_graph_process, signal_atomicMinBlock, 
+		                                            signal_atomicMaxBlock, signal_atomicAddBlock, error, time);
 	
 
-	//fprintf(fp, "%f", time);
 
 	fclose(fp);
 
 	return 1;
+}
+
+int cmpfunc (const void * a, const void * b)
+{
+	return ( *(int*)a - *(int*)b );
+}
+
+int eliminate_repeated_elements_from_array (const int *arr, int size, int new_size, int min_edge)
+{
+	int count = 0;
+
+	int new_arr[new_size];
+
+	for (int i = 1; i < size; ++i)
+	{
+		if (arr[i-1] != arr[i] && arr[i] > arr[i-1])
+		{
+			(new_arr)[count] = arr[i];
+			count++;
+
+			if (count == new_size) break;
+		}
+	}
+
+	return new_arr[min_edge-1];
+
+}
+
+
+int min_edge_to_process (const int *row_ptr, int nv, int min_edge)
+{
+	int *arr = (int *) malloc (nv * sizeof(int));
+
+	for (int i = 1; i <= nv ; ++i)
+	{
+		arr[i-1] = row_ptr[i] - row_ptr[i - 1];
+		//printf("row_ptr[%i]: %i\n", i, row_ptr[i]);
+	}
+
+	qsort(arr, nv, sizeof(int), cmpfunc);
+
+	int start = 0;
+	
+	for (int i = 0; i < nv; ++i)
+	{
+		if (arr[i] != 0)
+		{
+			start = i;
+			break;
+		}
+	}
+	
+
+	int nchunk = 10;
+	int chunk = ((nv - start) / nchunk) + 1;
+	int j = start;
+	int size = nchunk*3;
+
+	int *indices = (int *) malloc (size * sizeof(int));
+
+	for (int i = 0; i < nchunk; ++i)
+	{
+		indices[i] = arr[j];
+		
+		printf("min_edge[%i]: %i\n", j, arr[j]);
+
+		if (i == nchunk - 1 && j < nv)
+		{
+			int chunk2 = chunk / 10;
+			int z = chunk2;
+
+			for (int k = 1; k < 10; ++k)
+			{
+				indices[i+k] = arr[j+z];
+				printf("min_edge[%i]: %i\n", j+z, arr[j+z]);
+				z += chunk2;
+
+			}
+		}
+		
+
+		j+=chunk;
+ 	}
+
+ 	int new_size = nchunk*2;
+ 	 	
+ 	int r = eliminate_repeated_elements_from_array (indices, size, new_size, min_edge);
+
+ 	return r;
+
 }
 
 

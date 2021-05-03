@@ -17,21 +17,26 @@ int main(int argc, char const *argv[])
 	bool signal_appr_attr = atoi(argv[3]);
 	bool signal_reduce_execution = atoi(argv[4]);
 	int signal_partial_graph_process = atoi(argv[5]);
-	const char* file = argv[6];
-	float min_edges_to_process = atoi(argv[7]);
-	float iter_num = atoi(argv[8]);
-	float percentage = atof(argv[9]);
-	bool write = atoi(argv[10]);
-	int algorithm_option = atoi(argv[11]);
+	bool signal_atomicMinBlock = atoi(argv[6]);
+	bool signal_atomicMaxBlock = atoi(argv[7]);
+	bool signal_atomicAddBlock = atoi(argv[8]);
 
+	const char* file = argv[9];
+	
+	float min_edges_to_process = atoi(argv[10]);
+	float iter_num = atoi(argv[11]);
+	float percentage = atof(argv[12]);
+	bool write = atoi(argv[13]);
+	int algorithm_option = atoi(argv[14]);
 
 	switch (algorithm_option) 
 	{
 		case 1:
 
 			main_bellman(signal_originalDistance, signal_kernelMinEdge, signal_appr_attr, 
-		                 signal_reduce_execution, signal_partial_graph_process, file,
-		                 min_edges_to_process, iter_num, percentage, write);
+		                 signal_reduce_execution, signal_partial_graph_process, 
+		                 signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
+		                 file, min_edges_to_process, iter_num, percentage, write);
 			break;
 
 		case 2:

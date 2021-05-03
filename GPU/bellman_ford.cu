@@ -134,13 +134,11 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 
 	int2* dist = (int2*)malloc(nv*sizeof(int2));
 
-
 	int signal_partial_graph_process = (*appr_vals)[0];
 	int signal_reduce_execution = (*appr_vals)[1];
 	int iter_num = (*appr_vals)[2];
 	float *percentage = (float*)malloc(nv*sizeof(float));
 	*percentage = (*appr_vals)[3];
-
 
 
 	cudaCheck(cudaMalloc((void **)&d_row_ptr, (nv+1)*sizeof(int)));
@@ -153,7 +151,7 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaCheck(cudaMemcpy(d_nv, &nv, sizeof(int), cudaMemcpyHostToDevice));
 
 
-
+	/*
 	cudaEvent_t start;
 	cudaEvent_t stop;
 	cudaCheck(cudaEventCreate(&start));
@@ -161,6 +159,7 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaCheck(cudaEventRecord(start, 0));
 
 	cudaProfilerStart();
+	*/
 
 
 	initVar<<<(nv + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_dist, d_nv);
@@ -217,6 +216,13 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	int round = 1;
 	int temp = 0;
 	
+	cudaEvent_t start;
+	cudaEvent_t stop;
+	cudaCheck(cudaEventCreate(&start));
+	cudaCheck(cudaEventCreate(&stop));
+	cudaCheck(cudaEventRecord(start, 0));
+
+	cudaProfilerStart();
 
 	// no approximation. Both signals are negative
 	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process) { temp += size;

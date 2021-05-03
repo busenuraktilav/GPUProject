@@ -14,13 +14,19 @@ make -f Makefile || exit
 
 while read line1;
 do
-echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>FILE_TO_PROCESS : ' $line1
+echo '>>>>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>>>>'
+echo 'FILE_TO_PROCESS : ' $line1
+echo '>>>>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>>>>'
 while read line2;
 do
-echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>SIGNALS : ' $line2
+echo 'SIGNALS : ' $line2
+echo '>>>>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>>>>'
 
 
-if [ "$line2" == "1 0 0 0 0" ];
+if [ "$line2" == "1 0 0 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -31,32 +37,23 @@ rm 'time_results.txt'
 fi
 
 iter=$(head -n 1 $file3)
-maxEdge=$(sed -n '2p' $file3)
 
 
-p=()
-
-for t in {1..10};
-do
-myvar=$(((maxEdge / 1000) * t * t * t))
-p+=($myvar)
-done
-
-
-if [ "$line2" == "0 1 0 0 0" ];
+if [ "$line2" == "0 1 0 0 0 0 0 0" ];
 then
-for t in {0..9};
+for t in {1..17};
 do
 for n in {0..9};
 do
-./run $line2 $line1 ${p[t]} $iter 1 0 1
+./run $line2 $line1 $t $iter 1 0 1
 done
-./run $line2 $line1 ${p[t]} $iter 1 1 1
+./run $line2 $line1 $t $iter 1 1 1
 rm 'time_results.txt'
 done
 fi
 
-if [ "$line2" == "0 0 1 0 0" ];
+
+if [ "$line2" == "0 0 1 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -67,7 +64,7 @@ rm 'time_results.txt'
 fi
 
 
-if [ "$line2" == "0 0 0 1 0" ];
+if [ "$line2" == "0 0 0 1 0 0 0 0" ];
 then
 for t in $(seq 0 $iter);
 do
@@ -81,10 +78,9 @@ done
 fi
 
 
-p=(0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1)
+p=(0.6, 0.5)
 
-
-if [ "$line2" == "0 0 0 0 1" ];
+if [ "$line2" == "0 0 0 0 1 0 0 0" ];
 then
 for t in {0..8}
 do
@@ -93,6 +89,46 @@ do
 ./run $line2 $line1 0 $iter ${p[t]} 0 1
 done
 ./run $line2 $line1 0 $iter ${p[t]} 1 1
+rm 'time_results.txt'
+done
+fi
+
+
+if [ "$line2" == "0 0 0 0 0 1 0 0" ];
+then
+for t in {0..8}
+do
+for ((n=1; n<=10; n++))
+do
+./run $line2 $line1 0 $iter 0 0 1
+done
+./run $line2 $line1 0 $iter 0 1 1
+rm 'time_results.txt'
+done
+fi
+
+if [ "$line2" == "0 0 0 0 0 0 1 0" ];
+then
+for t in {0..8}
+do
+for ((n=1; n<=10; n++))
+do
+./run $line2 $line1 0 $iter 0 0 1
+done
+./run $line2 $line1 0 $iter 0 1 1
+rm 'time_results.txt'
+done
+fi
+
+if [ "$line2" == "0 0 0 0 0 0 0 1" ];
+then
+for t in {0..8}
+do
+for ((n=1; n<=10; n++))
+do
+./run $line2 $line1 0 $iter 0 0 1
+done
+./run $line2 $line1 0 $iter 0 1 1
 rm 'time_results.txt'
 done
 fi
@@ -113,13 +149,21 @@ make -f Makefile || exit
 
 while read line1;
 do
-echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>FILE_TO_PROCESS : ' $line1
+echo '>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>'
+echo 'FILE_TO_PROCESS : ' $line1
+echo '>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>'
 while read line2;
 do
-echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>SIGNALS : ' $line2
+echo '>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>'
+echo 'SIGNALS : ' $line2
+echo '>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>'
 
 
-if [ "$line2" == "1 0 0 0 0" ];
+if [ "$line2" == "1 0 0 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -131,33 +175,24 @@ fi
 
 
 iter=$(head -n 1 $file3)
-maxEdge=$(sed -n '2p' $file3)
 
 
-p=()
 
-for i in {1..10};
-do
-myvar=$(((maxEdge / 1000) * t * t *t))
-p+=($myvar)
-done
-
-
-if [ "$line2" == "0 1 0 0 0" ];
+if [ "$line2" == "0 1 0 0 0 0 0 0" ];
 then
-for t in {0..9};
+for t in {1..17};
 do
 for n in {0..9};
 do
-./run $line2 $line1 ${p[t]} $iter 1 0 2
+./run $line2 $line1 $t $iter 1 0 2
 done
-./run $line2 $line1 ${p[t]} $iter 1 1 2
+./run $line2 $line1 $t $iter 1 1 2
 rm 'time_results.txt'
 done
 fi
 
 
-if [ "$line2" == "0 0 1 0 0" ];
+if [ "$line2" == "0 0 1 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -168,12 +203,14 @@ rm 'time_results.txt'
 fi
 
 
-if [ "$line2" == "0 0 0 1 0" ];
+if [ "$line2" == "0 0 0 1 0 0 0 0" ];
 then
 for t in $(seq 0 $iter);
 do
+	echo 'iter: ' $iter
 for n in {0..9};
 do
+	echo 't: ' $t 
 ./run $line2 $line1 0 $t 1 0 2
 done
 ./run $line2 $line1 0 $t 1 1 2
@@ -184,6 +221,7 @@ fi
 
 done < $file1
 done < $file2
+
 
 
 echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,Error,executionTime" >> '../hybrid_performance_results.csv'
@@ -198,13 +236,21 @@ make -f Makefile || exit
 
 while read line1;
 do
-echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>FILE_TO_PROCESS : ' $line1
+echo '>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>'
+echo 'FILE_TO_PROCESS : ' $line1
+echo '>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>'
 while read line2;
 do
-echo '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>SIGNALS : ' $line2
+echo '>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>'
+echo 'SIGNALS : ' $line2
+echo '>>>>>>>>>>>>'
+echo '>>>>>>>>>>>>'
 
 
-if [ "$line2" == "1 0 0 0 0" ];
+if [ "$line2" == "1 0 0 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -216,33 +262,27 @@ fi
 
 
 iter=$(head -n 1 $file3)
-maxEdge=$(sed -n '2p' $file3)
+
+echo 'iter: ' $iter
 
 
-p=()
-
-for i in {1..10};
-do
-myvar=$(((maxEdge / 1000) * t * t *t))
-p+=($myvar)
-done
-
-
-if [ "$line2" == "0 1 0 0 0" ];
+if [ "$line2" == "0 1 0 0 0 0 0 0" ];
 then
-for t in {0..8};
+for t in {1..17};
 do
+	echo '-------------t: ' $t
 for n in {0..9};
 do
-./run $line2 $line1 ${p[t]} $iter 1 0 3
+	echo '-------------t: ' $t
+./run $line2 $line1 $t $iter 1 0 3
 done
-./run $line2 $line1 ${p[t]} $iter 1 1 3
+./run $line2 $line1 $t $iter 1 1 3
 rm 'time_results.txt'
 done
 fi
 
 
-if [ "$line2" == "0 0 1 0 0" ];
+if [ "$line2" == "0 0 1 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -253,7 +293,7 @@ rm 'time_results.txt'
 fi
 
 
-if [ "$line2" == "0 0 0 1 0" ];
+if [ "$line2" == "0 0 0 1 0 0 0 0" ];
 then
 for t in $(seq 0 $iter);
 do

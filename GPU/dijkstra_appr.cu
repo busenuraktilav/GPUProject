@@ -194,13 +194,14 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	cudaCheck(cudaMemcpy(d_max_distance, &max_distance, sizeof(int), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_min_edges, &min_edges, sizeof(int), cudaMemcpyHostToDevice));
 
-
+	/*
 	cudaEvent_t start;
 	cudaEvent_t stop;
 
 	cudaCheck(cudaEventCreate(&start));
 	cudaCheck(cudaEventCreate(&stop));
 	cudaCheck(cudaEventRecord(start, 0));
+	*/
 
 	int threadnum = 128;
 	int gridSize = (nv + threadnum - 1) / threadnum;  
@@ -220,75 +221,126 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 
 	int count = 0;
 
-
-	// no approximation. Both signals are negative
-    while(!visitEmpty(visited, nv) && !signal_reduce_execution && !signal_partial_graph_process && !min_edges)
-    {
-        // execute the kernel
-        cudaSSSPKernel1<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
-                                                d_visited, d_distance, d_temp_distance,
-                                                nv, ne );
-       
-
-        cudaSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
-                                                d_visited, d_distance, d_temp_distance );
-        
-
-        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * nv, cudaMemcpyDeviceToHost ));
-
-        (count)++;
-        //printf("count: %i\n", *count);
-    }
-
-    //min edges to process signal is active. only some edges are processed in kernel
-    while(!visitEmpty(visited, nv) && !signal_reduce_execution && !signal_partial_graph_process && min_edges)
-    {
-        // execute the kernel
-        cudaSSSPKernel1MoreEdges<<< gridSize, threadnum >>> ( d_row_ptr, d_col_ind, d_weights,
-                                   							  d_visited, d_distance, d_temp_distance,
-                                   							  nv, ne, d_min_edges );
-        //cudaSSSPKernel1<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
-        //                                        d_visited, d_distance, d_temp_distance,
-        //                                        nv, ne );
-       
-
-        cudaSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
-                                                d_visited, d_distance, d_temp_distance );
-        
-
-        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * nv, cudaMemcpyDeviceToHost ));
-
-        (count)++;
-        //printf("count: %i\n", *count);
-    }
-
-
-    while(!visitEmpty(visited, nv) && count <= iter_num && signal_reduce_execution && !signal_partial_graph_process && !min_edges)
-    {
-        // execute the kernel
-        cudaSSSPKernel1<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
-                                                d_visited, d_distance, d_temp_distance,
-                                                nv, ne );
-       
-
-        cudaSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
-                                                d_visited, d_distance, d_temp_distance );
-        
-
-        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * nv, cudaMemcpyDeviceToHost ));
-
-        (count)++;
-        //printf("count: %i\n", *count);
-    }
-
-
-    //Copy outputs to host
-	cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-	
-	cudaCheck(cudaEventRecord(stop, 0));
-	cudaCheck(cudaEventSynchronize(stop));
 	float elapsed;
-	cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+
+	if (!signal_reduce_execution && !signal_partial_graph_process && !min_edges)
+	{
+		cudaEvent_t start;
+		cudaEvent_t stop;
+
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		// no approximation. Both signals are negative
+	    while(!visitEmpty(visited, nv) && !signal_reduce_execution && !signal_partial_graph_process && !min_edges)
+	    {
+	        // execute the kernel
+	        cudaSSSPKernel1<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+	                                                d_visited, d_distance, d_temp_distance,
+	                                                nv, ne );
+	       
+
+	        cudaSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+	                                                d_visited, d_distance, d_temp_distance );
+	        
+
+	        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * nv, cudaMemcpyDeviceToHost ));
+
+	        (count)++;
+
+	        (*appr_vals)[2] = count;
+	        
+	    }
+
+	    //Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		float elapsed;
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+	    
+	}
+
+	if (min_edges)
+	{
+		cudaEvent_t start;
+		cudaEvent_t stop;
+
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		//min edges to process signal is active. only some edges are processed in kernel
+	    while(!visitEmpty(visited, nv) && !signal_reduce_execution && !signal_partial_graph_process && min_edges)
+	    {
+	        // execute the kernel
+	        cudaSSSPKernel1MoreEdges<<< gridSize, threadnum >>> ( d_row_ptr, d_col_ind, d_weights,
+	                                   							  d_visited, d_distance, d_temp_distance,
+	                                   							  nv, ne, d_min_edges );
+	        //cudaSSSPKernel1<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+	        //                                        d_visited, d_distance, d_temp_distance,
+	        //                                        nv, ne );
+	       
+
+	        cudaSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+	                                                d_visited, d_distance, d_temp_distance );
+	        
+
+	        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * nv, cudaMemcpyDeviceToHost ));
+
+	        (count)++;
+	    }
+
+	    //Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		float elapsed;
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+	}
+
+    
+	if (signal_reduce_execution)
+	{
+		cudaEvent_t start;
+		cudaEvent_t stop;
+
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		while(!visitEmpty(visited, nv) && count <= iter_num && signal_reduce_execution && !signal_partial_graph_process && !min_edges)
+	    {
+	        // execute the kernel
+	        cudaSSSPKernel1<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+	                                                d_visited, d_distance, d_temp_distance,
+	                                                nv, ne );
+	       
+
+	        cudaSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+	                                                d_visited, d_distance, d_temp_distance );
+	        
+
+	        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * nv, cudaMemcpyDeviceToHost ));
+
+	        (count)++;
+	        //printf("count: %i\n", count);
+	    }
+
+	    //Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		float elapsed;
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+	}
 	
 
 	// Deallocation
@@ -301,4 +353,6 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	printf("GPU SDJ time (ms): %f\n", elapsed);
 
 	*time = elapsed;
+
+	
 }

@@ -19,14 +19,13 @@
 
 void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool signal_appr_attr, 
 	             bool signal_reduce_execution, int signal_partial_graph_process, const char *file,
-	             float min_edges_to_process, float iter_num, float percentage, bool write)
+	             float min_edge, float iter_num, float percentage, bool write)
 {
 
 	const char* distance_file = "../dijkstra_originaldistance.txt";
 	const char* time_results = "time_results.txt";
 	const char* perf_results = "../dijkstra_performance_results.csv";
 
-	
 	int start;
 
 	int *row_ptr, *col_ind, *row_ind, *weights, max_weight, min_weight, nv, ne, neg_edge_count = 0;
@@ -54,19 +53,36 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 		printf("Start node: %i\n", start);
 		printf("Max degree: %i\n", max_degree);
 
-		
+		printf("nv: %i\nne: %i\n", nv, ne);
+
 		clock_t strt, end;
 		int cnt = 0;
 		float time = 0;
 
 
 		//appr_vals = [signal_partial_graph_process, signal_reduce_execution, iter_num, percentage, min_edges_to_process]
-		float *appr_vals = (float*)malloc(5*sizeof(float));
+		float *appr_vals = (float*)malloc(8*sizeof(float));
 
-
+		/*
 		appr_vals[4] = min_edges_to_process;
 		appr_vals[2] = iter_num;
 		appr_vals[3] = percentage;
+		*/
+
+		// TEMPORARILY
+
+		bool signal_atomicMinBlock = 0;
+		bool signal_atomicMaxBlock = 0;
+		bool signal_atomicAddBlock = 0;
+
+		appr_vals[0] = signal_partial_graph_process;
+		appr_vals[1] = signal_reduce_execution;
+		appr_vals[2] = iter_num;
+		appr_vals[3] = percentage;
+		appr_vals[4] = 0;
+		appr_vals[5] = signal_atomicMinBlock;
+		appr_vals[6] = signal_atomicMaxBlock;
+		appr_vals[7] = signal_atomicAddBlock;
 
 	
 		if (signal_originalDistance)
@@ -80,16 +96,15 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 			apprsdj(row_ptr, col_ind, weights, &gpu_dj_distance, &gpu_dj_previous, nv, ne, start, &appr_vals, INT_MAX, &time);
 	
 			int iter_num = appr_vals[2];
-			printf("iter_num: %i\n", iter_num);
 			
 			write_distance(distance_file, gpu_dj_distance, &iter_num, &max_degree, nv);
 
 			if (write)
 			{
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edges_to_process, percentage, signal_originalDistance, signal_kernelMinEdge, 
+							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
 			}
 			
 			else
@@ -111,6 +126,8 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 			appr_vals[1] = 0;
 			float percentage = 1.0;
 
+			appr_vals[4] = min_edge_to_process(row_ptr, nv, min_edge);
+
 			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX, &time);
 
 			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist3, nv);
@@ -123,9 +140,9 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 			if (write)
 			{
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edges_to_process, percentage, signal_originalDistance, signal_kernelMinEdge, 
+							   appr_vals[4], percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
 			}
 			
 			else
@@ -166,9 +183,9 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 			if (write)
 			{
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edges_to_process, percentage, signal_originalDistance, signal_kernelMinEdge, 
+							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
 			}
 			
 			else
@@ -191,7 +208,6 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 			appr_vals[0] = 0;
 			appr_vals[1] = 1;
 
-
 			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, &appr_vals, INT_MAX, &time);
 
 			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist1, nv);
@@ -203,9 +219,9 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 			if (write)
 			{
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edges_to_process, percentage, signal_originalDistance, signal_kernelMinEdge, 
+							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
 			}
 			
 			else
