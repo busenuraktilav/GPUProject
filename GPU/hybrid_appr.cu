@@ -249,12 +249,13 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	    
 	    }
 
-	    //Copy outputs to host
-		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-		
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		//Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
 
 	}
 
@@ -291,12 +292,14 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	    
 	    }
 
-	    //Copy outputs to host
-		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-		
+	    
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		//Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
 
 	}
 
@@ -336,12 +339,14 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	    
 	    }
 
-	    //Copy outputs to host
-		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-		
+	    
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		//Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
 
 	}
 

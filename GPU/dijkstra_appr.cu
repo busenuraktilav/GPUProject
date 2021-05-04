@@ -254,13 +254,14 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	        
 	    }
 
-	    //Copy outputs to host
-		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-		
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		float elapsed;
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		//Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
 	    
 	}
 
@@ -294,13 +295,14 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	        (count)++;
 	    }
 
-	    //Copy outputs to host
-		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-		
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		float elapsed;
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		//Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
 
 	}
 
@@ -332,13 +334,14 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	        //printf("count: %i\n", count);
 	    }
 
-	    //Copy outputs to host
-		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-		
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		float elapsed;
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		//Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
 
 	}
 	

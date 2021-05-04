@@ -392,7 +392,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
-		cudaProfilerStart();
+		//cudaProfilerStart();
 
 		// no approximation. Both signals are negative
 		while((size > 0) && (round < nv) && temp < ne) { temp += size;
@@ -421,15 +421,16 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 			round++;
 
 		}
-
-		// Copy outputs to host
-		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 		
-		cudaProfilerStop();
+		//cudaProfilerStop();
 
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 	}
 
 
@@ -444,7 +445,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
-		cudaProfilerStart();
+		//cudaProfilerStart();
 
 		while((size > 0) && (round < nv) && temp < ne) { temp += size;
 
@@ -473,15 +474,16 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		}
 
-		// Copy outputs to host
-		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
-		
-		cudaProfilerStop();
+		//cudaProfilerStop();
 
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
 	}
 
 	
@@ -495,7 +497,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
-		cudaProfilerStart();
+		//cudaProfilerStart();
 
 
 		while((size > 0) && (round < nv) && temp < ne) { temp += size;
@@ -532,15 +534,16 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		}
 
-		// Copy outputs to host
-		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
-		
-		cudaProfilerStop();
+		//cudaProfilerStop();
 
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
 	}
 	
 	
@@ -554,7 +557,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
-		cudaProfilerStart();
+		//cudaProfilerStart();
 
 
 		while((round < iter_num+1) ) { temp += size;
@@ -582,15 +585,17 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		}
 
-		// Copy outputs to host
-		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 		
-		cudaProfilerStop();
+		//cudaProfilerStop();
 
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
 	}
 
 
@@ -603,7 +608,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
-		cudaProfilerStart();
+		//cudaProfilerStart();
 
 		
 		while((size > 0) && (round < nv) && temp < ne) { temp += size;
@@ -631,14 +636,15 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		}
 
-		// Copy outputs to host
-		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
-		
-		cudaProfilerStop();
+		//cudaProfilerStop();
 
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
 	}
 
 	
@@ -650,7 +656,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
-		cudaProfilerStart();
+		//cudaProfilerStart();
 
 		
 		while((size > 0) && (round < nv) && temp < ne) { temp += size;
@@ -678,14 +684,15 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		}
 
-		// Copy outputs to host
-		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
-		
-		cudaProfilerStop();
+		//cudaProfilerStop();
 
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
 	}
 
 
@@ -697,7 +704,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
-		cudaProfilerStart();
+		//cudaProfilerStart();
 
 		
 		while((size > 0) && (round < nv) && temp < ne) { temp += size;
@@ -725,14 +732,15 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		}
 
-		// Copy outputs to host
-		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
-		
-		cudaProfilerStop();
+		//cudaProfilerStop();
 
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
 	}
 	
 
