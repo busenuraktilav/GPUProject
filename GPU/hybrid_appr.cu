@@ -45,6 +45,37 @@ __global__  void cudaHSSSPKernel1 ( int *row_ptr, int *col_ind, int *weights,
     }
 }
 
+
+__global__  void cudaHSSSPKernel1AtomicExchBlock ( int *row_ptr, int *col_ind, int *weights,
+                                   int *visited, int *distance, unsigned int *temp_distance,
+                                   int nv, int ne )
+{
+    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if ( visited[tid] != 0 )
+    {
+    	//printf("inside kernel1: %i\n", tid);
+        visited[tid] = 0;
+
+        for(int edge = row_ptr[tid]; edge < row_ptr[tid + 1]; edge++)
+        {
+            int nid = col_ind[edge];
+
+            int w = weights[edge];
+            int du = distance[tid];
+            int newDist = du + w;
+
+            //if (temp_distance[nid] > (distance[tid] + weights[edge]))
+            if ((temp_distance[nid] > newDist) && (du != INT_MAX))
+            {
+                //temp_distance[nid] = (distance[tid] + weights[edge]);
+                //printf("temp_distance[%i]: %i\n", nid, temp_distance[nid]);
+            	atomicExch_block(&temp_distance[nid], newDist);
+            }
+        }
+    }
+}
+
   
 
 __global__  void cudaHSSSPKernel2 ( int *row_ptr, int *col_ind, int *weights,
@@ -151,6 +182,7 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	float *percentage = (float*)malloc(nv*sizeof(float));
 	*percentage = (*appr_vals)[3];
 	int min_edges = (*appr_vals)[4];
+	int signal_atomicExchBlock = (*appr_vals)[8];
 
 
 	// Allocate device
@@ -175,14 +207,6 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	cudaCheck(cudaMemcpy(d_max_distance, &max_distance, sizeof(int), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_min_edges, &min_edges, sizeof(int), cudaMemcpyHostToDevice));
 
-	/*
-	cudaEvent_t start;
-	cudaEvent_t stop;
-
-	cudaCheck(cudaEventCreate(&start));
-	cudaCheck(cudaEventCreate(&stop));
-	cudaCheck(cudaEventRecord(start, 0));
-	*/
 
 	int threadnum = 128;
 	int gridSize = (nv + threadnum - 1) / threadnum; 
@@ -211,7 +235,7 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	printf("neg_edge_count: %i\n", neg_edge_count);
 
 
-	if (!signal_reduce_execution && !signal_partial_graph_process && !min_edges)
+	if (!signal_reduce_execution && !signal_partial_graph_process && !min_edges && !signal_atomicExchBlock)
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
@@ -270,7 +294,7 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 		cudaCheck(cudaEventRecord(start, 0));
 
 		//min edges to process signal is active. only some edges are processed in kernel
-	    while((count) != (k+2) && !signal_reduce_execution && !signal_partial_graph_process && min_edges)
+	    while((count) != (k+2))
 	    {
 	    	 while(!visitempty(visited, nv))
 	    	 {
@@ -345,8 +369,52 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
 
 		//Copy outputs to host
-		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-		
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));	
+
+	}
+
+	if (signal_atomicExchBlock)
+	{
+		cudaEvent_t start;
+		cudaEvent_t stop;
+
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		while((count) != (k+2))
+	    {
+
+	    	int cnt = 0;
+
+	    	while(!visitempty(visited, nv) && cnt <= iter_num)
+	    	{
+		        // execute the kernel
+		        cudaHSSSPKernel1AtomicExchBlock<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+		                                                d_visited, d_distance, d_temp_distance,
+		                                                nv, ne );
+		       
+
+		        cudaHSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+		                                                d_visited, d_distance, d_temp_distance );
+		        
+
+		        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * (nv+1), cudaMemcpyDeviceToHost ));
+		      
+		        cnt++;
+	        }
+
+	        (count)++;
+	    
+	    }
+
+	    
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		//Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));	
 
 	}
 

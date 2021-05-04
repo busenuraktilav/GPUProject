@@ -20,14 +20,15 @@ int main(int argc, char const *argv[])
 	bool signal_atomicMinBlock = atoi(argv[6]);
 	bool signal_atomicMaxBlock = atoi(argv[7]);
 	bool signal_atomicAddBlock = atoi(argv[8]);
+	bool signal_atomicExchBlock = atoi(argv[9]);
 
-	const char* file = argv[9];
+	const char* file = argv[10];
 	
-	float min_edges_to_process = atoi(argv[10]);
-	float iter_num = atoi(argv[11]);
-	float percentage = atof(argv[12]);
-	bool write = atoi(argv[13]);
-	int algorithm_option = atoi(argv[14]);
+	float min_edges_to_process = atoi(argv[11]);
+	float iter_num = atoi(argv[12]);
+	float percentage = atof(argv[13]);
+	bool write = atoi(argv[14]);
+	int algorithm_option = atoi(argv[15]);
 
 	switch (algorithm_option) 
 	{
@@ -36,21 +37,26 @@ int main(int argc, char const *argv[])
 			main_bellman(signal_originalDistance, signal_kernelMinEdge, signal_appr_attr, 
 		                 signal_reduce_execution, signal_partial_graph_process, 
 		                 signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-		                 file, min_edges_to_process, iter_num, percentage, write);
+		                 signal_atomicExchBlock, file, min_edges_to_process, iter_num, 
+		                 percentage, write);
 			break;
 
 		case 2:
 
 			main_dijkstra(signal_originalDistance, signal_kernelMinEdge, signal_appr_attr, 
-		                 signal_reduce_execution, signal_partial_graph_process, file,
-		                 min_edges_to_process, iter_num, percentage, write);
+		                  signal_reduce_execution, signal_partial_graph_process, 
+		                  signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock,
+		                  signal_atomicExchBlock, file, min_edges_to_process, iter_num, 
+		                  percentage, write);
 			break;
 
 		case 3:
 
 			main_hybrid(signal_originalDistance, signal_kernelMinEdge, signal_appr_attr, 
-	            	    signal_reduce_execution, signal_partial_graph_process, file,
-	                    min_edges_to_process, iter_num, percentage, write);
+		                  signal_reduce_execution, signal_partial_graph_process, 
+		                  signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock,
+		                  signal_atomicExchBlock, file, min_edges_to_process, iter_num, 
+		                  percentage, write);
 			break;
 
 		default:

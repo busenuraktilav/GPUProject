@@ -300,6 +300,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	int signal_atomicMinBlock = (*appr_vals)[5];
 	int signal_atomicMaxBlock = (*appr_vals)[6];
 	int signal_atomicAddBlock = (*appr_vals)[7];
+	int signal_atomicExchBlock = (*appr_vals)[8];
 
 
 	cudaCheck(cudaMalloc((void **)&d_row_ptr, (nv+1)*sizeof(int)));
@@ -315,17 +316,6 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	cudaCheck(cudaMemcpy(d_max_distance, &max_distance, sizeof(int), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_min_edges, &min_edges, sizeof(int), cudaMemcpyHostToDevice));
 
-
-	/*
-	cudaEvent_t start;
-	cudaEvent_t stop;
-	cudaCheck(cudaEventCreate(&start));
-	cudaCheck(cudaEventCreate(&stop));
-	cudaCheck(cudaEventRecord(start, 0));
-
-	cudaProfilerStart();
-
-	*/
 
 	cudainitVar<<<(nv + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_dist, d_nv, d_max_distance);
 

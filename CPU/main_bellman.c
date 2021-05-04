@@ -21,7 +21,8 @@
 void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool signal_appr_attr, 
 	              bool signal_reduce_execution, int signal_partial_graph_process, 
 	              bool signal_atomicMinBlock, bool signal_atomicMaxBlock, bool signal_atomicAddBlock,
-	              const char *file,float min_edges, float iter_num, float percentage, bool write)
+	              bool signal_atomicExchBlock, const char *file,float min_edges, float iter_num, 
+	              float percentage, bool write)
 {
 	const char* distance_file = "../bellman_originaldistance.txt";
 	const char* time_results = "time_results.txt";
@@ -61,7 +62,7 @@ void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool 
 
 
 		//appr_vals = [signal_partial_graph_process, signal_reduce_execution, iter_num, percentage, min_edges]
-		float *appr_vals = (float*)malloc(8*sizeof(float));
+		float *appr_vals = (float*)malloc(9*sizeof(float));
 
 		
 		appr_vals[0] = signal_partial_graph_process;
@@ -72,6 +73,7 @@ void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool 
 		appr_vals[5] = signal_atomicMinBlock;
 		appr_vals[6] = signal_atomicMaxBlock;
 		appr_vals[7] = signal_atomicAddBlock;
+		appr_vals[8] = signal_atomicExchBlock;
 
 
 
@@ -95,7 +97,8 @@ void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool 
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
 							   min_edges, percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
+							   signal_atomicExchBlock, error);
 			}
 			
 			else
@@ -133,7 +136,8 @@ void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool 
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
 							   appr_vals[4], percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
+							   signal_atomicExchBlock, error);
 			
 			}
 			
@@ -177,7 +181,8 @@ void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool 
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
 							   min_edges, percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
+							   signal_atomicExchBlock, error);
 			}
 			
 			else
@@ -214,7 +219,8 @@ void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool 
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
 							   min_edges, percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
+							   signal_atomicExchBlock, error);
 			}
 			
 			else
@@ -244,7 +250,8 @@ void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool 
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
 							   min_edges, percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
+							   signal_atomicExchBlock, error);
 			}
 			
 			else
@@ -271,7 +278,8 @@ void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool 
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
 							   min_edges, percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
+							   signal_atomicExchBlock, error);
 			
 			}
 			
@@ -280,65 +288,6 @@ void main_bellman(bool signal_originalDistance, bool signal_kernelMinEdge, bool 
 				write_time_results(time_results, time);
 			}
 		}
-
-		/*
-
-		if (signal_atomicMaxBlock)
-		{
-			int iter_num;
-		    read_distance(distance_file, &gpu_bf_distance, &iter_num, &max_degree, nv);
-
-			apprbf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_bf_distance, &gpu_appr_dist3, nv);
-
-			init_zero(&gpu_appr_dist3, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edges, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
-			
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-		}
-
-		if (signal_atomicAddBlock)
-		{
-			int iter_num;
-		    read_distance(distance_file, &gpu_bf_distance, &iter_num, &max_degree, nv);
-
-			apprbf(row_ptr, col_ind, row_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_bf_distance, &gpu_appr_dist3, nv);
-
-			init_zero(&gpu_appr_dist3, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edges, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, error);
-			
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-		}
-		*/
 
 
 		free(row_ptr);

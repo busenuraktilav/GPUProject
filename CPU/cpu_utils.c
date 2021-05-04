@@ -294,7 +294,8 @@ float find_avg_time (const char *filename, int repeat)
 int write_performance_results(const char *perf_file, const char *time_file, int nv, int ne, int iter_num, int max_degree, 
 							  int min_edge, float percentage, bool signal_originalDistance, bool signal_kernelMinEdge, 
 							  bool signal_appr_attr, bool signal_reduce_execution, bool signal_partial_graph_process,
-							  bool signal_atomicMinBlock, bool signal_atomicMaxBlock, bool signal_atomicAddBlock, float error)
+							  bool signal_atomicMinBlock, bool signal_atomicMaxBlock, bool signal_atomicAddBlock, 
+							  bool signal_atomicExchBlock, float error)
 {
 	int repeat = 10;
 
@@ -305,11 +306,12 @@ int write_performance_results(const char *perf_file, const char *time_file, int 
 	if(fp == NULL)
 		return -1;
 	
-	fprintf(fp, "%d,%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f\n", nv, ne, iter_num, max_degree, min_edge, 
+	fprintf(fp, "%d,%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f\n", nv, ne, iter_num, max_degree, min_edge, 
 		                                            percentage, signal_originalDistance, signal_kernelMinEdge, 
 		                                            signal_appr_attr, signal_reduce_execution, 
 		                                            signal_partial_graph_process, signal_atomicMinBlock, 
-		                                            signal_atomicMaxBlock, signal_atomicAddBlock, error, time);
+		                                            signal_atomicMaxBlock, signal_atomicAddBlock, 
+		                                            signal_atomicExchBlock, error, time);
 	
 
 

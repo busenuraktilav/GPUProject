@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,Error,executionTime" >> '../bellman_performance_results.csv'
+echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,sAtomicMinBlock,sAtomicMaxBlock,sAtomicAddBlock,sAtomicExchBlock,Error,executionTime" >> '../bellman_performance_results.csv'
 
 file1='commands_bellman.txt'
 file2='graph_names.txt'
@@ -26,7 +26,7 @@ echo '>>>>>>>>>>>>>>>'
 echo '>>>>>>>>>>>>>>>'
 
 
-if [ "$line2" == "1 0 0 0 0 0 0 0" ];
+if [ "$line2" == "1 0 0 0 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -39,7 +39,7 @@ fi
 iter=$(head -n 1 $file3)
 
 
-if [ "$line2" == "0 1 0 0 0 0 0 0" ];
+if [ "$line2" == "0 1 0 0 0 0 0 0 0" ];
 then
 for t in {1..17};
 do
@@ -53,7 +53,7 @@ done
 fi
 
 
-if [ "$line2" == "0 0 1 0 0 0 0 0" ];
+if [ "$line2" == "0 0 1 0 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -64,7 +64,7 @@ rm 'time_results.txt'
 fi
 
 
-if [ "$line2" == "0 0 0 1 0 0 0 0" ];
+if [ "$line2" == "0 0 0 1 0 0 0 0 0" ];
 then
 for t in $(seq 0 $iter);
 do
@@ -80,7 +80,7 @@ fi
 
 p=(0.6, 0.5)
 
-if [ "$line2" == "0 0 0 0 1 0 0 0" ];
+if [ "$line2" == "0 0 0 0 1 0 0 0 0" ];
 then
 for t in {0..8}
 do
@@ -94,7 +94,7 @@ done
 fi
 
 
-if [ "$line2" == "0 0 0 0 0 1 0 0" ];
+if [ "$line2" == "0 0 0 0 0 1 0 0 0" ];
 then
 for t in {0..8}
 do
@@ -107,7 +107,7 @@ rm 'time_results.txt'
 done
 fi
 
-if [ "$line2" == "0 0 0 0 0 0 1 0" ];
+if [ "$line2" == "0 0 0 0 0 0 1 0 0" ];
 then
 for t in {0..8}
 do
@@ -120,7 +120,7 @@ rm 'time_results.txt'
 done
 fi
 
-if [ "$line2" == "0 0 0 0 0 0 0 1" ];
+if [ "$line2" == "0 0 0 0 0 0 0 1 0" ];
 then
 for t in {0..8}
 do
@@ -137,7 +137,7 @@ done < $file1
 done < $file2
 
 
-echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,Error,executionTime" >> '../dijkstra_performance_results.csv'
+echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,sAtomicMinBlock,sAtomicMaxBlock,sAtomicAddBlock,sAtomicExchBlock,Error,executionTime" >> '../dijkstra_performance_results.csv'
 
 
 file1='commands_dijkstra.txt'
@@ -163,7 +163,7 @@ echo '>>>>>>>>>>>>'
 echo '>>>>>>>>>>>>'
 
 
-if [ "$line2" == "1 0 0 0 0 0 0 0" ];
+if [ "$line2" == "1 0 0 0 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -178,7 +178,7 @@ iter=$(head -n 1 $file3)
 
 
 
-if [ "$line2" == "0 1 0 0 0 0 0 0" ];
+if [ "$line2" == "0 1 0 0 0 0 0 0 0" ];
 then
 for t in {1..17};
 do
@@ -192,7 +192,7 @@ done
 fi
 
 
-if [ "$line2" == "0 0 1 0 0 0 0 0" ];
+if [ "$line2" == "0 0 1 0 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -203,14 +203,12 @@ rm 'time_results.txt'
 fi
 
 
-if [ "$line2" == "0 0 0 1 0 0 0 0" ];
+if [ "$line2" == "0 0 0 1 0 0 0 0 0" ];
 then
 for t in $(seq 0 $iter);
 do
-	echo 'iter: ' $iter
 for n in {0..9};
 do
-	echo 't: ' $t 
 ./run $line2 $line1 0 $t 1 0 2
 done
 ./run $line2 $line1 0 $t 1 1 2
@@ -219,12 +217,23 @@ done
 fi
 
 
+if [ "$line2" == "0 0 0 0 0 0 0 0 1" ];
+then
+for n in {0..9};
+do
+./run $line2 $line1 0 $iter 1 0 2
+done
+./run $line2 $line1 0 $iter 1 1 2
+rm 'time_results.txt'
+fi
+
+
 done < $file1
 done < $file2
 
 
 
-echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,Error,executionTime" >> '../hybrid_performance_results.csv'
+echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,sAtomicMinBlock,sAtomicMaxBlock,sAtomicAddBlock,sAtomicExchBlock,Error,executionTime" >> '../hybrid_performance_results.csv'
 
 
 file1='commands_dijkstra.txt'
@@ -250,7 +259,7 @@ echo '>>>>>>>>>>>>'
 echo '>>>>>>>>>>>>'
 
 
-if [ "$line2" == "1 0 0 0 0 0 0 0" ];
+if [ "$line2" == "1 0 0 0 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -266,7 +275,7 @@ iter=$(head -n 1 $file3)
 echo 'iter: ' $iter
 
 
-if [ "$line2" == "0 1 0 0 0 0 0 0" ];
+if [ "$line2" == "0 1 0 0 0 0 0 0 0" ];
 then
 for t in {1..17};
 do
@@ -282,7 +291,7 @@ done
 fi
 
 
-if [ "$line2" == "0 0 1 0 0 0 0 0" ];
+if [ "$line2" == "0 0 1 0 0 0 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -293,7 +302,7 @@ rm 'time_results.txt'
 fi
 
 
-if [ "$line2" == "0 0 0 1 0 0 0 0" ];
+if [ "$line2" == "0 0 0 1 0 0 0 0 0" ];
 then
 for t in $(seq 0 $iter);
 do
@@ -304,6 +313,16 @@ done
 ./run $line2 $line1 0 $t 1 1 3
 rm 'time_results.txt'
 done
+fi
+
+if [ "$line2" == "0 0 0 0 0 0 0 0 0 1" ];
+then
+for n in {0..9};
+do
+./run $line2 $line1 0 $iter 1 0 3
+done
+./run $line2 $line1 0 $iter 1 1 3
+rm 'time_results.txt'
 fi
 
 
