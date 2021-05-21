@@ -82,7 +82,7 @@ p=(0.6, 0.5)
 
 if [ "$line2" == "0 0 0 0 1 0 0 0 0" ];
 then
-for t in {0..8}
+for t in {0..1}
 do
 for ((n=1; n<=10; n++))
 do
@@ -98,39 +98,30 @@ if [ "$line2" == "0 0 0 0 0 1 0 0 0" ];
 then
 for t in {0..8}
 do
-for ((n=1; n<=10; n++))
-do
 ./run $line2 $line1 0 $iter 0 0 1
 done
 ./run $line2 $line1 0 $iter 0 1 1
 rm 'time_results.txt'
-done
 fi
 
 if [ "$line2" == "0 0 0 0 0 0 1 0 0" ];
 then
 for t in {0..8}
 do
-for ((n=1; n<=10; n++))
-do
 ./run $line2 $line1 0 $iter 0 0 1
 done
 ./run $line2 $line1 0 $iter 0 1 1
 rm 'time_results.txt'
-done
 fi
 
 if [ "$line2" == "0 0 0 0 0 0 0 1 0" ];
 then
 for t in {0..8}
 do
-for ((n=1; n<=10; n++))
-do
 ./run $line2 $line1 0 $iter 0 0 1
 done
 ./run $line2 $line1 0 $iter 0 1 1
 rm 'time_results.txt'
-done
 fi
 
 done < $file1
@@ -279,10 +270,8 @@ if [ "$line2" == "0 1 0 0 0 0 0 0 0" ];
 then
 for t in {1..17};
 do
-	echo '-------------t: ' $t
 for n in {0..9};
 do
-	echo '-------------t: ' $t
 ./run $line2 $line1 $t $iter 1 0 3
 done
 ./run $line2 $line1 $t $iter 1 1 3

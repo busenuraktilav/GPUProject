@@ -47,11 +47,12 @@ __global__  void cudaSSSPKernel1 ( int *row_ptr, int *col_ind, int *weights,
             {
                 //temp_distance[nid] = (distance[tid] + weights[edge]);
                 //printf("temp_distance[%i]: %i\n", nid, temp_distance[nid]);
-            	atomicExch(&temp_distance[nid], newDist);
+            	atomicMin(&temp_distance[nid], newDist);
             }
         }
     }
 }
+
 
 __global__  void cudaSSSPKernel1AtomicExchBlock ( int *row_ptr, int *col_ind, int *weights,
                                    int *visited, int *distance, unsigned int *temp_distance,
@@ -77,11 +78,12 @@ __global__  void cudaSSSPKernel1AtomicExchBlock ( int *row_ptr, int *col_ind, in
             {
                 //temp_distance[nid] = (distance[tid] + weights[edge]);
                 //printf("temp_distance[%i]: %i\n", nid, temp_distance[nid]);
-            	atomicExch_block(&temp_distance[nid], newDist);
+            	atomicMin_block(&temp_distance[nid], newDist);
             }
         }
     }
 }
+
 
 
 // This is Algorithm 5 in the paper.  
@@ -129,7 +131,7 @@ __global__  void cudaSSSPKernel1MoreEdges ( int *row_ptr, int *col_ind, int *wei
 	            {
 	                //temp_distance[nid] = (distance[tid] + weights[edge]);
 	                //printf("temp_distance[%i]: %i\n", nid, temp_distance[nid]);
-	            	atomicExch(&temp_distance[nid], newDist);
+	            	atomicMin(&temp_distance[nid], newDist);
 	            }
 	        }
 	    }
@@ -244,7 +246,7 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	float elapsed;
 
 
-	if (!signal_reduce_execution && !signal_partial_graph_process && !min_edges && !signal_atomicExchBlock)
+	if (!signal_reduce_execution && !min_edges && !signal_atomicExchBlock)
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
@@ -284,7 +286,7 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	    
 	}
 
-	if (min_edges)
+	if (min_edges && !signal_reduce_execution && !signal_atomicExchBlock)
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
@@ -325,7 +327,7 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	}
 
     
-	if (signal_reduce_execution)
+	if (signal_reduce_execution && !min_edges && !signal_atomicExchBlock)
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
@@ -362,6 +364,43 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 
 	}
 
+	if (min_edges && signal_reduce_execution && !signal_atomicExchBlock)
+	{
+		cudaEvent_t start;
+		cudaEvent_t stop;
+
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		
+	    while(!visitEmpty(visited, nv) && count <= iter_num)
+	    {
+	        // execute the kernel
+	        cudaSSSPKernel1MoreEdges<<< gridSize, threadnum >>> ( d_row_ptr, d_col_ind, d_weights,
+	                                   							  d_visited, d_distance, d_temp_distance,
+	                                   							  nv, ne, d_min_edges );
+
+	        cudaSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+	                                                d_visited, d_distance, d_temp_distance );
+	        
+
+	        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * nv, cudaMemcpyDeviceToHost ));
+
+	        (count)++;
+	    }
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		//Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
+		
+
+	}
+
+	
 	if (signal_atomicExchBlock)
 	{
 		cudaEvent_t start;
@@ -402,6 +441,7 @@ void apprsdj(const int *row_ptr, const int *col_ind, const int *weights, int **d
 		
 	    
 	}
+	
 	
 
 	// Deallocation

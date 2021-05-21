@@ -1,9 +1,3 @@
-../example_graphs/graph_18_16_pos-10.txt
-../example_graphs/graph_19_16_pos-10.txt
-../example_graphs/graph_20_16_pos-10.txt
-../example_graphs/graph_21_16_pos-10.txt
-../example_graphs/graph_22_16_pos-10.txt
-../example_graphs/graph_23_16_pos-10.txt
-../example_graphs/graph_24_16_pos-10.txt
-../example_graphs/graph_25_16_pos-10.txt
-../example_graphs/graph_26_16_pos-10.txt
+../../GPU_PROJECT/code/example_graphs/graph_18_16_pos-10.txt
+../../GPU_PROJECT/code/example_graphs/graph_19_16_pos-10.txt
+../../GPU_PROJECT/code/example_graphs/graph_20_16_pos-10.txt

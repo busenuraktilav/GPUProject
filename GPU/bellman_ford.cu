@@ -166,6 +166,14 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 
 	cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 
+	float elapsed0;
+
+	cudaEvent_t start0;
+	cudaEvent_t stop0;
+	cudaCheck(cudaEventCreate(&start0));
+	cudaCheck(cudaEventCreate(&stop0));
+	cudaCheck(cudaEventRecord(start0, 0));
+
 	//To increase parallelism, first process the source vertex
 	int srcNeigh = row_ptr[source + 1] - row_ptr[source];
 	int *srcArr = (int*)calloc(srcNeigh, sizeof(int));
@@ -185,6 +193,13 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 			srcArr[index++] = col_ind[i]; // add to frontier
 		}
 	}
+
+
+	cudaCheck(cudaEventRecord(stop0, 0));
+	cudaCheck(cudaEventSynchronize(stop0));
+	cudaCheck(cudaEventElapsedTime(&elapsed0, start0, stop0));
+
+	printf("******** NORMAL EXECUTION RESULT *******\n\n%f\n\n", elapsed0);
 
 	int *iter = (int*)malloc(sizeof(int));
 	*iter = 2;
@@ -222,7 +237,7 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaCheck(cudaEventCreate(&stop));
 	cudaCheck(cudaEventRecord(start, 0));
 
-	cudaProfilerStart();
+	//cudaProfilerStart();
 
 	// no approximation. Both signals are negative
 	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process) { temp += size;
@@ -255,15 +270,16 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 
 	//printf("total size: %i\n", temp);
 
-	// Copy outputs to host
-	cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
-	
-	cudaProfilerStop();
+	//cudaProfilerStop();
 
 	cudaCheck(cudaEventRecord(stop, 0));
 	cudaCheck(cudaEventSynchronize(stop));
 	float elapsed;
 	cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+	// Copy outputs to host
+	cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+	
 
 
 	// check for negative cycles

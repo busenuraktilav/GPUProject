@@ -44,7 +44,7 @@ __global__  void CUDA_SSSP_KERNEL1( int *row_ptr, int *col_ind, int *weights,
             {
                 //temp_distance[nid] = (distance[tid] + weights[edge]);
                 //printf("temp_distance[%i]: %i\n", nid, temp_distance[nid]);
-            	atomicExch(&temp_distance[nid], newDist);
+            	atomicMin(&temp_distance[nid], newDist);
             }
         }
     }

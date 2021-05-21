@@ -109,7 +109,7 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 
 		//Calculate the min edges 
 		
-		if(signal_kernelMinEdge)
+		if(signal_kernelMinEdge && !signal_reduce_execution)
 		{
 			int iter_num;
 		    read_distance(distance_file, &gpu_dj_distance, &iter_num, &max_degree, nv);
@@ -192,7 +192,7 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 
 		//Calculate the reduced execution from technique1
 
-		if (signal_reduce_execution)
+		if (signal_reduce_execution && !signal_kernelMinEdge)
 		{
 			float percentage = 1.0;
 
@@ -214,6 +214,43 @@ void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool
 			{
 				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
 							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
+							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
+							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
+							   signal_atomicExchBlock, error);
+			}
+			
+			else
+			{
+				write_time_results(time_results, time);
+			}
+
+		}
+
+
+		if(signal_kernelMinEdge && signal_reduce_execution)
+		{
+			int iter;
+		    read_distance(distance_file, &gpu_dj_distance, &iter, &max_degree, nv);
+
+			appr_vals[0] = 0;
+			appr_vals[1] = 0;
+			float percentage = 1.0;
+
+			appr_vals[4] = min_edge_to_process(row_ptr, nv, min_edge);
+
+			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX, &time);
+
+			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist3, nv);
+
+			init_zero(&gpu_appr_dist3, nv);
+
+			printf("*******ERROR: %f\n", error);
+
+
+			if (write)
+			{
+				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
+							   appr_vals[4], percentage, signal_originalDistance, signal_kernelMinEdge, 
 							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
 							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
 							   signal_atomicExchBlock, error);

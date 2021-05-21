@@ -39,7 +39,7 @@ __global__  void cudaHSSSPKernel1 ( int *row_ptr, int *col_ind, int *weights,
 
            if ((temp_distance[nid] > newDist) && (du != INT_MAX))
             {
-            	atomicExch(&temp_distance[nid], newDist);
+            	atomicMin(&temp_distance[nid], newDist);
             }
         }
     }
@@ -70,11 +70,13 @@ __global__  void cudaHSSSPKernel1AtomicExchBlock ( int *row_ptr, int *col_ind, i
             {
                 //temp_distance[nid] = (distance[tid] + weights[edge]);
                 //printf("temp_distance[%i]: %i\n", nid, temp_distance[nid]);
-            	atomicExch_block(&temp_distance[nid], newDist);
+            	atomicMin_block(&temp_distance[nid], newDist);
             }
         }
     }
 }
+
+
 
   
 
@@ -115,7 +117,7 @@ __global__  void cudaHSSSPKernel1MoreEdges ( int *row_ptr, int *col_ind, int *we
 
 	            if ((temp_distance[nid] > newDist) && (du != INT_MAX))
 	            {
-	            	atomicExch(&temp_distance[nid], newDist);
+	            	atomicMin(&temp_distance[nid], newDist);
 	            }
 	        }
 	    }
@@ -284,7 +286,7 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	}
 
 
-	if (min_edges)
+	if (min_edges && !signal_reduce_execution && !signal_atomicExchBlock)
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
@@ -328,7 +330,7 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	}
 
     
-	if (signal_reduce_execution)
+	if (signal_reduce_execution && !min_edges && !signal_atomicExchBlock)
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
@@ -373,6 +375,54 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 
 	}
 
+
+	if (signal_reduce_execution && min_edges && !signal_atomicExchBlock)
+	{
+		cudaEvent_t start;
+		cudaEvent_t stop;
+
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		while((count) != (k+2) && signal_reduce_execution && !signal_partial_graph_process && !min_edges)
+	    {
+
+	    	int cnt = 0;
+
+	    	while(!visitempty(visited, nv) && cnt <= iter_num)
+	    	{
+		        // execute the kernel
+		        cudaHSSSPKernel1MoreEdges<<< gridSize, threadnum >>> ( d_row_ptr, d_col_ind, d_weights,
+	                                   							  d_visited, d_distance, d_temp_distance,
+	                                   							  nv, ne, d_min_edges );
+		       
+
+		        cudaHSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
+		                                                d_visited, d_distance, d_temp_distance );
+		        
+
+		        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * (nv+1), cudaMemcpyDeviceToHost ));
+		      
+		        cnt++;
+	        }
+
+	        (count)++;
+	    
+	    }
+
+	    
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		//Copy outputs to host
+		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));	
+
+	}
+
+
+	
 	if (signal_atomicExchBlock)
 	{
 		cudaEvent_t start;
@@ -417,6 +467,7 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));	
 
 	}
+	
 
 
 	printf("count: %i\n", count);

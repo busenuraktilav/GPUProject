@@ -86,6 +86,7 @@ __global__ void cudarelaxAtom(int *row_ptr, int *col_ind, int *weights, int *que
 }
 
 
+
 __global__ void cudarelaxAtomicAddBlock(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter) 
 {
 
@@ -183,6 +184,8 @@ __global__ void cudarelaxAtomicMaxBlock(int *row_ptr, int *col_ind, int *weights
         }
     }
 }
+
+
 
 __global__ void cudarelaxAtomicMoreEdges(int *row_ptr, int *col_ind, int *weights, int *queue, 
 	                                     int *nextQueue, int size, int* nextSize, int2* distance, 
@@ -321,6 +324,15 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 	cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 
+
+	float elapsed;
+
+	cudaEvent_t start;
+	cudaEvent_t stop;
+	cudaCheck(cudaEventCreate(&start));
+	cudaCheck(cudaEventCreate(&stop));
+	cudaCheck(cudaEventRecord(start, 0));
+
 	//To increase parallelism, first process the source vertex
 	int srcNeigh = row_ptr[source + 1] - row_ptr[source];
 	int *srcArr = (int*)calloc(srcNeigh, sizeof(int));
@@ -340,6 +352,11 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 			srcArr[index++] = col_ind[i]; // add to frontier
 		}
 	}
+
+	cudaCheck(cudaEventRecord(stop, 0));
+	cudaCheck(cudaEventSynchronize(stop));
+	cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
 
 	int *iter = (int*)malloc(sizeof(int));
 	*iter = 2;
@@ -361,7 +378,7 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_percentage, percentage, sizeof(float), cudaMemcpyHostToDevice));
 
-	float elapsed;
+	elapsed = 0;
 
 	int size = srcNeigh;
 	int *nextSize = (int*)malloc(sizeof(int));
@@ -421,11 +438,15 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		// Copy outputs to host
 		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
+
 	}
 
 
 	
-	if (min_edges)
+	if (min_edges && !signal_partial_graph_process && !signal_reduce_execution)
 	{
 		//min edges to process signal is active. only some edges are processed in kernel
 
@@ -456,9 +477,6 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 			std::swap(d_queue, d_nextQueue); // swap frontiers
 
 			
-
-			//printf("round: %i\n", round);
-
 			(*appr_vals)[2] = round;
 			round++;
 
@@ -474,10 +492,12 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		// Copy outputs to host
 		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
 	}
 
 	
-	if (signal_partial_graph_process)
+	if (signal_partial_graph_process && !min_edges && !signal_reduce_execution)
 	{
 		// If reduce signal is negative && partial graph processing signal positive
 
@@ -534,10 +554,12 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		// Copy outputs to host
 		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
 	}
 	
 	
-	if (signal_reduce_execution)
+	if (signal_reduce_execution && !signal_partial_graph_process && !min_edges)
 	{
 		//If reduce signal is positive && partial process signal negative
 
@@ -586,9 +608,247 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		// Copy outputs to host
 		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
 	}
 
 
+	if (signal_reduce_execution && min_edges && !signal_partial_graph_process)
+	{
+		//If reduce signal is positive && partial process signal negative
+
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		//cudaProfilerStart();
+
+
+		while((round < iter_num+1) ) { temp += size;
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtomicMoreEdges<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter, d_min_edges); 
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			(*iter) ++;
+
+			printf("size: %i\n", size);
+
+			size = *nextSize;
+			*nextSize = 0;
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+			
+			
+			round++;
+
+		}
+
+		
+		//cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
+	}
+
+	if (signal_reduce_execution && signal_partial_graph_process && !min_edges)
+	{
+		//If reduce signal is positive && partial process signal negative
+
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		//cudaProfilerStart();
+
+
+		while((round < iter_num+1) ) { temp += size;
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtom<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter);
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+
+			(*iter) ++;
+			
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+			curandGenerate(gen, d_random_ints, size); //Generate n ints on device
+
+			cudasubset_of_vertices<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_nextSize, d_percentage, d_queue, d_subset_queue, d_random_ints);
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			std::swap(d_queue, d_subset_queue);
+
+			printf("size: %i\n", size);
+					
+			size = *nextSize;
+			*nextSize = 0;
+
+			round++;
+
+		}
+
+		//cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
+	}
+
+
+	if (signal_partial_graph_process && min_edges && !signal_reduce_execution)
+	{
+		// If reduce signal is negative && partial graph processing signal positive
+
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		//cudaProfilerStart();
+
+
+		while((size > 0) && (round < nv) && temp < ne) { temp += size;
+
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtomicMoreEdges<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter, d_min_edges); 
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+
+			(*iter) ++;
+			
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+			curandGenerate(gen, d_random_ints, size); //Generate n ints on device
+
+			cudasubset_of_vertices<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_nextSize, d_percentage, d_queue, d_subset_queue, d_random_ints);
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			std::swap(d_queue, d_subset_queue);
+
+			printf("size: %i\n", size);
+					
+			size = *nextSize;
+			*nextSize = 0;
+
+			(*appr_vals)[2] = round;
+			round++;
+
+		}
+
+		//cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
+	}
+
+
+	if (signal_partial_graph_process && min_edges && signal_reduce_execution)
+	{
+		// If reduce signal is negative && partial graph processing signal positive
+
+		cudaEvent_t start;
+		cudaEvent_t stop;
+		cudaCheck(cudaEventCreate(&start));
+		cudaCheck(cudaEventCreate(&stop));
+		cudaCheck(cudaEventRecord(start, 0));
+
+		//cudaProfilerStart();
+
+
+		while((round < iter_num+1) ) { temp += size;
+
+
+			cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudaCheck(cudaMemcpy(d_nextSize, nextSize, sizeof(int), cudaMemcpyHostToDevice));
+
+			cudarelaxAtomicMoreEdges<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_row_ptr, d_col_ind, d_weights, d_queue, d_nextQueue, size, d_nextSize, d_dist, d_iter, d_min_edges); 
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+
+			(*iter) ++;
+			
+			std::swap(d_queue, d_nextQueue); // swap frontiers
+
+			curandGenerate(gen, d_random_ints, size); //Generate n ints on device
+
+			cudasubset_of_vertices<<<(size + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_nextSize, d_percentage, d_queue, d_subset_queue, d_random_ints);
+
+			cudaCheck(cudaMemcpy(nextSize, d_nextSize, sizeof(int), cudaMemcpyDeviceToHost));
+
+			std::swap(d_queue, d_subset_queue);
+
+			printf("size: %i\n", size);
+					
+			size = *nextSize;
+			*nextSize = 0;
+
+			//(*appr_vals)[2] = round;
+			round++;
+
+		}
+
+		//cudaProfilerStop();
+
+		cudaCheck(cudaEventRecord(stop, 0));
+		cudaCheck(cudaEventSynchronize(stop));
+		
+		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
+
+		// Copy outputs to host
+		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
+		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
+	}
+
+
+
+	
 	
 	if (signal_atomicAddBlock)
 	{
@@ -635,6 +895,8 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		// Copy outputs to host
 		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
 	}
 
 	
@@ -683,6 +945,8 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 		// Copy outputs to host
 		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
 		
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
 	}
 
 
@@ -730,8 +994,12 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 
 		// Copy outputs to host
 		cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
-		
+	
+		printf("GPU SBF time(ms): %f\n", elapsed);
+		*time = elapsed;
 	}
+
+	
 	
 
 	// check for negative cycles
@@ -780,10 +1048,5 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const in
 	cudaCheck(cudaFree(d_iter));
 	cudaCheck(cudaFree(d_subset_queue));
 	cudaCheck(cudaFree(d_min_edges));
-
-
-	printf("GPU SBF time(ms): %f\n", elapsed);
-
-	*time = elapsed;
 	
 }

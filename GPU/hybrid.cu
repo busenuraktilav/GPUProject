@@ -39,7 +39,7 @@ __global__  void CUDA_KERNEL1( int *row_ptr, int *col_ind, int *weights,
 
             if ((temp_distance[nid] > newDist) && (du != INT_MAX))
             {
-            	atomicExch(&temp_distance[nid], newDist);
+            	atomicMin(&temp_distance[nid], newDist);
             	
             }
         }
