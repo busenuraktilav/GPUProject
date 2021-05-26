@@ -352,8 +352,6 @@ void apprbf(const int *row_ptr, const int *col_ind, const int *weights, int **di
 		}
 	}
 
-	printf("elapsed0: %f\n", elapsed0);
-
 	cudaCheck(cudaEventRecord(stop, 0));
 	cudaCheck(cudaEventSynchronize(stop));
 	cudaCheck(cudaEventElapsedTime(&elapsed0, start, stop));

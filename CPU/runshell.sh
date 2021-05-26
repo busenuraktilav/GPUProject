@@ -183,6 +183,10 @@ done
 done
 fi
 
+done < $file1
+done < $file2
+
+
 
 echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,sAtomicMinBlock,sAtomicMaxBlock,sAtomicAddBlock,Error,executionTime" >> '../dijkstra_performance_results.csv'
 
@@ -290,9 +294,9 @@ done
 done
 fi
 
-
 done < $file1
 done < $file2
+
 
 
 echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sApprAttrValues,sReduceExecution,sPartialGraphProcess,sAtomicMinBlock,sAtomicMaxBlock,sAtomicAddBlock,Error,executionTime" >> '../hybrid_performance_results.csv'
@@ -374,7 +378,7 @@ done
 fi
 
 
-if [ "$line2" == "0 0 0 0 0 0 0 0 0 1" ];
+if [ "$line2" == "0 0 0 0 0 0 0 0 1" ];
 then
 for n in {0..9};
 do
