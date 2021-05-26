@@ -267,7 +267,7 @@ done
 fi
 
 
-if [ "$line2" == "0 0 0 0 0 0 0 0 1" ];
+if [ "$line2" == "0 0 0 0 0 1 0 0 0" ];
 then
 for n in {0..9};
 do
@@ -378,7 +378,7 @@ done
 fi
 
 
-if [ "$line2" == "0 0 0 0 0 0 0 0 1" ];
+if [ "$line2" == "0 0 0 0 0 1 0 0 0" ];
 then
 for n in {0..9};
 do
