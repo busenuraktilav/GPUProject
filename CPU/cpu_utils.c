@@ -138,58 +138,7 @@ void appr_graph_rep (int **row_ptr, int **col_ind, int **weights, int *nv, int *
 	}
 }
 
-int write_distance (const char *filename, int *distance, int *iter_num, int *max_degree, int nv)
-{
-	FILE *fp = fopen(filename, "w");
 
-	if(fp == NULL)
-		return -1;
-
-
-	fprintf(fp, "%d\n", *iter_num);
-	fprintf(fp, "%d\n", *max_degree);
-
-	for (int i = 0; i < nv; i++)
-	{
-		fprintf(fp, "%d\n", distance[i]);
-	}
-
-	fclose(fp);
-
-	return 1;
-}
-
-int read_distance (const char *filename, int **distance, int *iter_num, int *max_degree, int nv)
-{
-	FILE *fp = fopen(filename, "r");
-	char line[1025];
-
-	*distance = (int *)malloc(nv*sizeof(int));
-
-	int i, d;
-
-	if(fp == NULL)
-	{
-		printf("File could not be found!");
-		return -1;
-	}
-
-
-	fgets(line, 1025, fp);
-	sscanf(line, "%d", iter_num);
-	fgets(line, 1025, fp);
-	sscanf(line, "%d", max_degree);
-
-	for (i = 0; i < nv; ++i)
-	{
-		fgets(line, 1025, fp);
-		sscanf(line, "%d", &d);
-
-		(*distance)[i] = d;
-	}
-
-	return 1;
-}
 
 /*
 int write_performance_results(const char *filename, int nv, int ne, int iter_num, int max_degree, 
@@ -291,11 +240,8 @@ float find_avg_time (const char *filename, int repeat)
 }
 
 
-int write_performance_results(const char *perf_file, const char *time_file, int nv, int ne, int iter_num, int max_degree, 
-							  int min_edge, float percentage, bool signal_originalDistance, bool signal_kernelMinEdge, 
-							  bool signal_appr_attr, bool signal_reduce_execution, bool signal_partial_graph_process,
-							  bool signal_atomicMinBlock, bool signal_atomicMaxBlock, bool signal_atomicAddBlock, 
-							  bool signal_atomicExchBlock, float error)
+int write_performance_results(const char *perf_file, const char *time_file, int nv, int ne, 
+	                          int max_degree, int *signals, float *signal_variables, float error)
 {
 	int repeat = 10;
 
@@ -306,12 +252,10 @@ int write_performance_results(const char *perf_file, const char *time_file, int 
 	if(fp == NULL)
 		return -1;
 	
-	fprintf(fp, "%d,%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f\n", nv, ne, iter_num, max_degree, min_edge, 
-		                                            percentage, signal_originalDistance, signal_kernelMinEdge, 
-		                                            signal_appr_attr, signal_reduce_execution, 
-		                                            signal_partial_graph_process, signal_atomicMinBlock, 
-		                                            signal_atomicMaxBlock, signal_atomicAddBlock, 
-		                                            signal_atomicExchBlock, error, time);
+	fprintf(fp, "%d,%d,%d,%d,%d,%f,%d,%d,%d,%d,%d,%d,%d,%d,%f,%f\n", nv, ne, (int)signal_variables[1], max_degree, 
+		                                            (int)signal_variables[0], signal_variables[2], signals[0], signals[1], 
+		                                            signals[2], signals[3], signals[4], signals[5], signals[6], 
+		                                            signals[7],  error, time);
 	
 
 

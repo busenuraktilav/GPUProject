@@ -1,7 +1,6 @@
 #include <stdbool.h>
-//void hybrid(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **distance, 
-//	        int **previous, int nv, int ne, int start, int *count, int neg_edge_count);
-int main_hybrid(bool signal_originalDistance, bool signal_kernelMinEdge, bool signal_appr_attr, 
-	             bool signal_reduce_execution, int signal_partial_graph_process, bool signal_atomicMinBlock, 
-	             bool signal_atomicMaxBlock, bool signal_atomicAddBlock, bool signal_atomicExchBlock,
-	             const char *file, float min_edge, float iter_num, float percentage, bool write);
+void hybrid(int **row_ptr, int **col_ind, int **weights, int **distance, int nv, 
+	        int ne, int start);
+int main_hybrid(int *row_ptr, int *col_ind, int *weights, int nv, int ne, 
+	            int neg_edge_count, int max_weight, int min_weight, int max_degree,
+	            int *signals, float *signal_variables, int start, bool write);

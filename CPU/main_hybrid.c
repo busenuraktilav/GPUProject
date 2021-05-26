@@ -7,311 +7,131 @@
 #include <string.h>
 
 #include "../graphio/graphio.h"
-#include "bellman_ford.h"
-#include "dijkstra.h"
 #include "hybrid.h"
 #include "heap.h"
-#include "../GPU/bellman_ford.cuh"
-#include "../GPU/dijkstra.cuh"
 #include "../GPU/hybrid.cuh"
 #include "cpu_utils.h"
 
 
-int main_hybrid(bool signal_originalDistance, bool signal_kernelMinEdge, bool signal_appr_attr, 
-	             bool signal_reduce_execution, int signal_partial_graph_process, bool signal_atomicMinBlock, 
-	             bool signal_atomicMaxBlock, bool signal_atomicAddBlock, bool signal_atomicExchBlock,
-	             const char *file, float min_edge, float iter_num, float percentage, bool write)
+int main_hybrid(int *row_ptr, int *col_ind, int *weights, int nv, int ne, 
+	            int neg_edge_count, int max_weight, int min_weight, int max_degree,
+	            int *signals, float *signal_variables, int start, bool write)
 {
 	
 	const char* distance_file = "../hybrid_originaldistance.txt";
 	const char* time_results = "time_results.txt";
 	const char* perf_results = "../hybrid_performance_results.csv";
+
+	int *distance, *approximate_distance;
 	
-	int start;
+	clock_t strt, end;
+	int cnt = 0;
+	float time = 0.0, error = 0.0;
 
-	int *row_ptr, *col_ind, *row_ind, *weights, max_weight, min_weight, nv, ne, neg_edge_count = 0;
-	int *gpu_hybrid_distance, *gpu_hybrid_previous;
-	int *gpu_appr_dist1, *gpu_appr_dist2, *gpu_appr_dist3, *gpu_appr_prev1, *gpu_appr_prev2, *gpu_appr_prev3;
-
-	int read = read_graph(file, &row_ptr, &col_ind, &row_ind, &weights, &nv, &ne, &neg_edge_count, &max_weight, &min_weight);
-
-
-
-
-	if(read == 1)
+	int iter_num;
+	
+	if (signals[0])
 	{
-
-		int start = 0;
-		int max_degree = 0, deg;
-		for (int i = 0; i < nv; ++i)
-		{
-			deg = row_ptr[i + 1] - row_ptr[i];
-			if (deg > max_degree)
-			{
-				start = i;
-				max_degree = deg;
-			}
-		}
-
-		printf("Start node: %i\n", start);
-		printf("Max degree: %i\n", max_degree);
-
-		
-		clock_t strt, end;
-		int cnt = 0;
-		float time = 0;
-
-		//appr_vals = [signal_partial_graph_process, signal_reduce_execution, iter_num, percentage, min_edges_to_process]
-		float *appr_vals = (float*)malloc(9*sizeof(float));
+		apprshybrid(row_ptr, col_ind, weights, &distance, nv, ne, start, 
+			        signals, &signal_variables, INT_MAX, neg_edge_count, &time);
+		write_distance(distance_file, distance, signal_variables[1], nv);
+	}
 		
 
-		appr_vals[0] = signal_partial_graph_process;
-		appr_vals[1] = signal_reduce_execution;
-		appr_vals[2] = iter_num;
-		appr_vals[3] = percentage;
-		appr_vals[2] = iter_num;
-		appr_vals[4] = 0;
-		appr_vals[5] = signal_atomicMinBlock;
-		appr_vals[6] = signal_atomicMaxBlock;
-		appr_vals[7] = signal_atomicAddBlock;
-		appr_vals[8] = signal_atomicExchBlock;
-
-		
-		if (signal_originalDistance)
-		{
-
-			appr_vals[0] = 0;
-			appr_vals[1] = 0;
-			float percentage = 1.0;
-			float error = 0.0;
-
-			apprshybrid(row_ptr, col_ind, weights, &gpu_hybrid_distance, &gpu_hybrid_previous, nv, ne, start, neg_edge_count, &appr_vals, INT_MAX, &time);
+	//Calculate the min edges 
 	
-			int iter_num = appr_vals[2];
-			printf("iter_num: %i\n", iter_num);
-			
-			write_distance(distance_file, gpu_hybrid_distance, &iter_num, &max_degree, nv);
+	if(signals[1] && !signals[3] && !signals[4])
+	{
+	    read_distance(distance_file, &distance, &iter_num, nv);
+		signal_variables[0] = min_edge_to_process(row_ptr, nv, signal_variables[0]);
 
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-		    
-		}
-			
-
-		//Calculate the min edges 
+		apprshybrid(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, INT_MAX, neg_edge_count, &time);
 		
-		if(signal_kernelMinEdge && !signal_reduce_execution)
-		{
-			int iter_num;
-		    read_distance(distance_file, &gpu_hybrid_distance, &iter_num, &max_degree, nv);
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("******* ERROR *******: %f\n", error);
+	}
+	
+	//Calculate approximate values from technique4
 
-			appr_vals[0] = 0;
-			appr_vals[1] = 0;
-			float percentage = 1.0;
+	if(signals[2])
+	{
+		read_distance(distance_file, &distance, &iter_num, nv);
 
-			appr_vals[4] = min_edge_to_process(row_ptr, nv, min_edge);
+		int *level_arr = (int *)malloc((nv) * sizeof(int));
+		int level = sync_bfs(row_ptr, col_ind, nv, ne, level_arr, start);
+		approximate_attributes(&weights, ne, &max_weight, &min_weight);
+		int max_distance = level * max_weight;
 
-			apprshybrid(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, neg_edge_count, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_hybrid_distance, &gpu_appr_dist3, nv);
-
-			init_zero(&gpu_appr_dist3, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   appr_vals[4], percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-			
-		}
-		
-		//Calculate approximate values from technique4
-
-		if(signal_appr_attr)
-		{
-			float percentage = 1.0;
-
-			int iter_num;
-		    read_distance(distance_file, &gpu_hybrid_distance, &iter_num, &max_degree, nv);
-
-			int *level_arr = (int *)malloc((nv) * sizeof(int));
-			int level = sync_bfs(row_ptr, col_ind, nv, ne, level_arr, start);
-
-			approximate_attributes(&weights, ne, &max_weight, &min_weight);
-
-			int max_distance = level * max_weight;
-			
-			appr_vals[0] = 0;
-			appr_vals[1] = 0; 
-
-			apprshybrid(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, neg_edge_count, &appr_vals, max_distance, &time);
-			
-			
-			float error = relative_error(&gpu_hybrid_distance, &gpu_appr_dist3, nv);
-
-			init_zero(&gpu_appr_dist3, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-
-	    }
-
-
-		//Calculate the reduced execution from technique1
-
-		if (signal_reduce_execution && !signal_kernelMinEdge)
-		{
-			float percentage = 1.0;
-
-			int iter;
-		    read_distance(distance_file, &gpu_hybrid_distance, &iter, &max_degree, nv);
-			
-			appr_vals[0] = 0;
-			appr_vals[1] = 1;
-
-
-			apprshybrid(row_ptr, col_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, neg_edge_count, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_hybrid_distance, &gpu_appr_dist1, nv);
-
-			init_zero(&gpu_appr_dist1, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-
-		}
-
-
-		if(signal_kernelMinEdge && signal_reduce_execution)
-		{
-			int iter;
-		    read_distance(distance_file, &gpu_hybrid_distance, &iter, &max_degree, nv);
-
-			appr_vals[0] = 0;
-			appr_vals[1] = 0;
-			float percentage = 1.0;
-
-			appr_vals[4] = min_edge_to_process(row_ptr, nv, min_edge);
-
-			apprshybrid(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, neg_edge_count, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_hybrid_distance, &gpu_appr_dist3, nv);
-
-			init_zero(&gpu_appr_dist3, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   appr_vals[4], percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-			
-		}
-
-
-
-		if (signal_atomicExchBlock)
-		{
-			float percentage = 1.0;
-
-			int iter;
-		    read_distance(distance_file, &gpu_hybrid_distance, &iter, &max_degree, nv);
-			
-			appr_vals[0] = 0;
-			appr_vals[1] = 1;
-
-			apprshybrid(row_ptr, col_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, neg_edge_count, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_hybrid_distance, &gpu_appr_dist1, nv);
-
-			init_zero(&gpu_appr_dist1, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-
-		}
+		apprshybrid(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, max_distance, neg_edge_count, &time);
 		
 		
-		free(row_ptr);
-		free(col_ind);
-		free(row_ind);
-		free(weights);
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("******* ERROR *******: %f\n", error);
+    }
 
-		
+
+	//Calculate the reduced execution from technique1
+
+	if (signals[3] && !signals[4] && !signals[1])
+	{
+		int temp_iter;
+	    read_distance(distance_file, &distance, &temp_iter, nv);
+
+		apprshybrid(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, INT_MAX, neg_edge_count, &time);
+
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("******* ERROR *******: %f\n", error);
 	}
 
+
+	if(signals[1] && signals[3] && !signals[4])
+	{
+		int temp_iter;
+	    read_distance(distance_file, &distance, &temp_iter, nv);
+
+		signal_variables[0] = min_edge_to_process(row_ptr, nv, signal_variables[0]);
+
+		apprshybrid(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, INT_MAX, neg_edge_count, &time);
+		
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("******* ERROR *******: %f\n", error);
+	}
+
+	if (signals[5])
+	{
+		read_distance(distance_file, &distance, &iter_num, nv);
+
+		apprshybrid(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, INT_MAX, neg_edge_count, &time);
+
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("*******ERROR: %f\n", error);
+	}
+
+	if (write)
+	{
+		write_performance_results(perf_results, time_results, nv, ne, max_degree, 
+			                      signals, signal_variables, error);
+	}
+	
+	else
+	{
+		write_time_results(time_results, time);
+	}
+	
+	
+	free(row_ptr);
+	free(col_ind);
+	free(weights);
 
 	return 0;
 }

@@ -90,23 +90,23 @@ bool visitedEmpty(int *visited, int count)
 extern "C"
 
 
-void sdj(const int *row_ptr, const int *col_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, int *count, double *time)
+void sdj(const int *row_ptr, const int *col_ind, const int *weights, int **distance, 
+	     const int nv, const int ne, int source, int *signals, float **signal_variables,
+	     double *time)
 {
 	// Initialize GPU variables
-	int *d_row_ptr, *d_col_ind, *d_weights, *d_distance, *d_previous, *d_visited, *d_nv, *d_ne;
+	int *d_row_ptr, *d_col_ind, *d_weights, *d_distance, *d_visited, *d_nv, *d_ne;
 	unsigned int *d_temp_distance;
 
 	
 	// Initialize CPU variables
 	*distance = (int*)malloc(nv*sizeof(int)); 
-	*previous = (int*)malloc(nv*sizeof(int));
 	int *visited = (int*)calloc(nv, sizeof(int));
 	unsigned int *temp_distance = (unsigned int*)malloc(nv*sizeof(unsigned int));
 
 	for (int i = 0; i < nv; i++)
 	{
 		(*distance)[i] = INT_MAX;
-		(*previous)[i] = -1;
 		temp_distance[i] = INT_MAX;
 		visited[i] = 0;
 	}
@@ -122,7 +122,6 @@ void sdj(const int *row_ptr, const int *col_ind, const int *weights, int **dista
 	cudaCheck(cudaMalloc((void **)&d_col_ind, (ne+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_weights, (ne+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_distance, nv*sizeof(int)));
-	cudaCheck(cudaMalloc((void **)&d_previous, nv*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_visited, nv*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_nv, sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_ne, sizeof(int)));
@@ -139,17 +138,17 @@ void sdj(const int *row_ptr, const int *col_ind, const int *weights, int **dista
 	cudaCheck(cudaMemcpy(d_temp_distance, temp_distance, nv*sizeof(unsigned int), cudaMemcpyHostToDevice));
 
 
-
+	
 	cudaEvent_t start;
 	cudaEvent_t stop;
-
 	cudaCheck(cudaEventCreate(&start));
 	cudaCheck(cudaEventCreate(&stop));
 	cudaCheck(cudaEventRecord(start, 0));
 
+
 	int threadnum = (nv > 1024) ? 1024 : nv;
 
-	*count = 0;
+	int round = 0;
 
     while(!visitedEmpty(visited, nv))
     {
@@ -167,8 +166,8 @@ void sdj(const int *row_ptr, const int *col_ind, const int *weights, int **dista
 
         cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * nv, cudaMemcpyDeviceToHost ));
 
-        (*count)++;
-        //printf("count: %i\n", *count);
+        round++;
+        (*signal_variables)[1] = round;
     }
 	
 	cudaCheck(cudaEventRecord(stop, 0));
@@ -178,13 +177,6 @@ void sdj(const int *row_ptr, const int *col_ind, const int *weights, int **dista
 	
 	//Copy outputs to host
 	cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-	//cudaMemcpy(*previous, d_previous, nv*sizeof(int), cudaMemcpyDeviceToHost);
-
-	for (int i = 0; i < nv; ++i)
-	{
-		//if ((*distance)[i] != INT_MAX)
-			//printf("(*distance)[%i]: %i\n", i, (*distance)[i]);
-	}
 
 
 	// Deallocation
@@ -192,7 +184,6 @@ void sdj(const int *row_ptr, const int *col_ind, const int *weights, int **dista
 	cudaCheck(cudaFree(d_col_ind));
 	cudaCheck(cudaFree(d_weights));
 	cudaCheck(cudaFree(d_distance));
-	cudaCheck(cudaFree(d_previous));
 
 	printf("GPU SDJ time: %f\n", elapsed/1000);
 

@@ -81,23 +81,23 @@ bool visited_empty(int *visited, int count)
 extern "C"
 
 
-void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, int *count, int neg_edge_count)
+void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **distance, 
+	     const int nv, const int ne, int source, int *signals, float **signal_variables,
+	     int neg_edge_count, double *time)
 {
 	// Initialize GPU variables
-	int *d_row_ptr, *d_col_ind, *d_weights, *d_distance, *d_previous, *d_visited, *d_nv, *d_ne;
+	int *d_row_ptr, *d_col_ind, *d_weights, *d_distance, *d_visited, *d_nv, *d_ne;
 	int *d_temp_distance;
 
 	
 	// Initialize CPU variables
 	*distance = (int*)malloc(nv*sizeof(int)); 
-	*previous = (int*)malloc(nv*sizeof(int));
 	int *visited = (int*)calloc(nv, sizeof(int));
 	int *temp_distance = (int*)malloc(nv*sizeof(int));
 
 	for (int i = 0; i < nv; i++)
 	{
 		(*distance)[i] = INT_MAX;
-		(*previous)[i] = -1;
 		temp_distance[i] = INT_MAX;
 		visited[i] = 0;
 	}
@@ -111,7 +111,6 @@ void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	cudaCheck(cudaMalloc((void **)&d_col_ind, (ne+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_weights, (ne+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_distance, nv*sizeof(int)));
-	cudaCheck(cudaMalloc((void **)&d_previous, nv*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_visited, (nv+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_nv, sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_ne, sizeof(int)));
@@ -131,7 +130,6 @@ void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **d
 
 	cudaEvent_t start;
 	cudaEvent_t stop;
-
 	cudaCheck(cudaEventCreate(&start));
 	cudaCheck(cudaEventCreate(&stop));
 	cudaCheck(cudaEventRecord(start, 0));
@@ -140,14 +138,14 @@ void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **d
 
 	int k = neg_edge_count;
 
-	*count = 0;
+	int round = 0;
 
 	int gridSize = (nv + 1023) / 1024; 
 
 	printf("neg_edge_count: %i\n", neg_edge_count);
 
 
-	while((*count) != (k+2))
+	while(round != (k+2))
     {
         // execute the kernel
         CUDA_KERNEL1<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
@@ -160,13 +158,11 @@ void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **d
         
 
         cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * (nv+1), cudaMemcpyDeviceToHost ));
-        (*count)++;
-    
+        
+        round++;
+    	(*signal_variables)[1] = round;
     }
 
-
-
-	printf("count: %i\n", *count);
 	
 	cudaCheck(cudaEventRecord(stop, 0));
 	cudaCheck(cudaEventSynchronize(stop));
@@ -182,9 +178,8 @@ void shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **d
 	cudaCheck(cudaFree(d_col_ind));
 	cudaCheck(cudaFree(d_weights));
 	cudaCheck(cudaFree(d_distance));
-	cudaCheck(cudaFree(d_previous));
 
 	printf("GPU SHYBRID time: %f\n", elapsed);
 
-	
+	*time = elapsed;
 }

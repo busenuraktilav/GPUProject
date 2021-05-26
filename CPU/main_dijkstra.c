@@ -7,304 +7,130 @@
 #include <string.h>
 
 #include "../graphio/graphio.h"
-#include "bellman_ford.h"
 #include "dijkstra.h"
-#include "hybrid.h"
 #include "heap.h"
-#include "../GPU/bellman_ford.cuh"
 #include "../GPU/dijkstra.cuh"
-#include "../GPU/hybrid.cuh"
 #include "cpu_utils.h" 
 
 
-void main_dijkstra(bool signal_originalDistance, bool signal_kernelMinEdge, bool signal_appr_attr, 
-	             bool signal_reduce_execution, int signal_partial_graph_process, bool signal_atomicMinBlock, 
-	             bool signal_atomicMaxBlock, bool signal_atomicAddBlock, bool signal_atomicExchBlock,
-	             const char *file, float min_edge, float iter_num, float percentage, bool write)
+void main_dijkstra(int *row_ptr, int *col_ind, int *weights, int nv, int ne, 
+	               int neg_edge_count, int max_weight, int min_weight, int max_degree,
+	               int *signals, float *signal_variables, int start, bool write)
 {
 
 	const char* distance_file = "../dijkstra_originaldistance.txt";
 	const char* time_results = "time_results.txt";
 	const char* perf_results = "../dijkstra_performance_results.csv";
 
-	int start;
+	int *distance, *approximate_distance;
 
-	int *row_ptr, *col_ind, *row_ind, *weights, max_weight, min_weight, nv, ne, neg_edge_count = 0;
-	int *gpu_dj_distance, *gpu_dj_previous;
-	int *gpu_appr_dist1, *gpu_appr_dist2, *gpu_appr_dist3, *gpu_appr_prev1, *gpu_appr_prev2, *gpu_appr_prev3;
+	clock_t strt, end;
+	int cnt = 0;
+	float time = 0.0, error = 0.0;
 
-	int read = read_graph(file, &row_ptr, &col_ind, &row_ind, &weights, &nv, &ne, &neg_edge_count, &max_weight, &min_weight);
+	int iter_num;
 
-
-	if(read == 1)
+	if (signals[0])
 	{
+		apprsdj(row_ptr, col_ind, weights, &distance, nv, ne, start, 
+			    signals, &signal_variables, INT_MAX, &time);
 
-		int start = 0;
-		int max_degree = 0, deg;
-		for (int i = 0; i < nv; ++i)
-		{
-			deg = row_ptr[i + 1] - row_ptr[i];
-			if (deg > max_degree)
-			{
-				start = i;
-				max_degree = deg;
-			}
-		}
+		write_distance(distance_file, distance, signal_variables[1], nv);
+	}
+		
 
-		printf("Start node: %i\n", start);
-		printf("Max degree: %i\n", max_degree);
-
-		printf("nv: %i\nne: %i\n", nv, ne);
-
-		clock_t strt, end;
-		int cnt = 0;
-		float time = 0;
-
-
-		//appr_vals = [signal_partial_graph_process, signal_reduce_execution, iter_num, percentage, min_edges_to_process]
-		float *appr_vals = (float*)malloc(9*sizeof(float));
-
-
-		appr_vals[0] = signal_partial_graph_process;
-		appr_vals[1] = signal_reduce_execution;
-		appr_vals[2] = iter_num;
-		appr_vals[3] = percentage;
-		appr_vals[4] = 0;
-		appr_vals[5] = signal_atomicMinBlock;
-		appr_vals[6] = signal_atomicMaxBlock;
-		appr_vals[7] = signal_atomicAddBlock;
-		appr_vals[8] = signal_atomicExchBlock;
-
+	//Calculate the min edges 
 	
-		if (signal_originalDistance)
-		{
+	if(signals[1] && !signals[3] && !signals[4])
+	{
+	    read_distance(distance_file, &distance, &iter_num, nv);
+		signal_variables[0] = min_edge_to_process(row_ptr, nv, signal_variables[0]);
+		
+		apprsdj(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, INT_MAX, &time);
+		
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("******* ERROR *******: %f\n", error);
 
-			appr_vals[0] = 0;
-			appr_vals[1] = 0;
-			float percentage = 1.0;
-			float error = 0.0;
-
-			apprsdj(row_ptr, col_ind, weights, &gpu_dj_distance, &gpu_dj_previous, nv, ne, start, &appr_vals, INT_MAX, &time);
+	}
 	
-			int iter_num = appr_vals[2];
-			
-			write_distance(distance_file, gpu_dj_distance, &iter_num, &max_degree, nv);
+	//Calculate approximate values from technique4
 
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-		    
-		}
-			
+	if(signals[2])
+	{
+		read_distance(distance_file, &distance, &iter_num, nv);
 
-		//Calculate the min edges 
+		int *level_arr = (int *)malloc((nv) * sizeof(int));
+		int level = sync_bfs(row_ptr, col_ind, nv, ne, level_arr, start);
+		approximate_attributes(&weights, ne, &max_weight, &min_weight);
+		int max_distance = level * max_weight;
+
+		apprsdj(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, max_distance, &time);
 		
-		if(signal_kernelMinEdge && !signal_reduce_execution)
-		{
-			int iter_num;
-		    read_distance(distance_file, &gpu_dj_distance, &iter_num, &max_degree, nv);
-
-			appr_vals[0] = 0;
-			appr_vals[1] = 0;
-			float percentage = 1.0;
-
-			appr_vals[4] = min_edge_to_process(row_ptr, nv, min_edge);
-
-			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist3, nv);
-
-			init_zero(&gpu_appr_dist3, nv);
-
-			printf("*******ERROR: %f\n", error);
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("******* ERROR *******: %f\n", error);
+    }
 
 
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   appr_vals[4], percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
+	//Calculate the reduced execution from technique1
 
-		}
-		
-		//Calculate approximate values from technique4
+	if (signals[3] && !signals[4] && !signals[1])
+	{
+		int temp_iter;
+	    read_distance(distance_file, &distance, &temp_iter, nv);
 
-		if(signal_appr_attr)
-		{
-			float percentage = 1.0;
+		apprsdj(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, INT_MAX, &time);
 
-			int iter_num;
-		    read_distance(distance_file, &gpu_dj_distance, &iter_num, &max_degree, nv);
-
-			int *level_arr = (int *)malloc((nv) * sizeof(int));
-			int level = sync_bfs(row_ptr, col_ind, nv, ne, level_arr, start);
-
-			approximate_attributes(&weights, ne, &max_weight, &min_weight);
-
-			int max_distance = level * max_weight;
-			
-			appr_vals[0] = 0;
-			appr_vals[1] = 0; 
-
-			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, max_distance, &time);
-			
-			
-			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist3, nv);
-
-			init_zero(&gpu_appr_dist3, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-	    
-	    }
-
-
-		//Calculate the reduced execution from technique1
-
-		if (signal_reduce_execution && !signal_kernelMinEdge)
-		{
-			float percentage = 1.0;
-
-			int iter;
-		    read_distance(distance_file, &gpu_dj_distance, &iter, &max_degree, nv);
-			
-			appr_vals[0] = 0;
-			appr_vals[1] = 1;
-
-			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist1, nv);
-
-			init_zero(&gpu_appr_dist1, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-
-		}
-
-
-		if(signal_kernelMinEdge && signal_reduce_execution)
-		{
-			int iter;
-		    read_distance(distance_file, &gpu_dj_distance, &iter, &max_degree, nv);
-
-			appr_vals[0] = 0;
-			appr_vals[1] = 0;
-			float percentage = 1.0;
-
-			appr_vals[4] = min_edge_to_process(row_ptr, nv, min_edge);
-
-			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist3, &gpu_appr_prev3, nv, ne, start, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist3, nv);
-
-			init_zero(&gpu_appr_dist3, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   appr_vals[4], percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-
-		}
-
-
-		if (signal_atomicExchBlock)
-		{
-			float percentage = 1.0;
-
-			int iter;
-		    read_distance(distance_file, &gpu_dj_distance, &iter, &max_degree, nv);
-			
-			appr_vals[0] = 0;
-			appr_vals[1] = 1;
-
-			apprsdj(row_ptr, col_ind, weights, &gpu_appr_dist1, &gpu_appr_prev1, nv, ne, start, &appr_vals, INT_MAX, &time);
-
-			float error = relative_error(&gpu_dj_distance, &gpu_appr_dist1, nv);
-
-			init_zero(&gpu_appr_dist1, nv);
-
-			printf("*******ERROR: %f\n", error);
-
-			if (write)
-			{
-				write_performance_results(perf_results, time_results, nv, ne, iter_num, max_degree, 
-							   min_edge, percentage, signal_originalDistance, signal_kernelMinEdge, 
-							   signal_appr_attr, signal_reduce_execution, signal_partial_graph_process,
-							   signal_atomicMinBlock, signal_atomicMaxBlock, signal_atomicAddBlock, 
-							   signal_atomicExchBlock, error);
-			}
-			
-			else
-			{
-				write_time_results(time_results, time);
-			}
-
-		}
-		
-		
-		free(row_ptr);
-		free(col_ind);
-		free(row_ind);
-		free(weights);
-
-		
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("******* ERROR *******: %f\n", error);
 	}
 
+
+	if(signals[1] && signals[3] && !signals[4])
+	{
+		int temp_iter;
+	    read_distance(distance_file, &distance, &temp_iter, nv);
+
+		signal_variables[0] = min_edge_to_process(row_ptr, nv, signal_variables[0]);
+
+		apprsdj(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, INT_MAX, &time);
+		
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("******* ERROR *******: %f\n", error);
+	}
+
+
+	if (signals[5])
+	{
+		read_distance(distance_file, &distance, &iter_num, nv);
+
+		apprsdj(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, signals,
+		       &signal_variables, INT_MAX, &time);
+
+		error = relative_error(&distance, &approximate_distance, nv);
+		init_zero(&approximate_distance, nv);
+		printf("*******ERROR: %f\n", error);
+	}
+	
+	if (write)
+	{
+		write_performance_results(perf_results, time_results, nv, ne, max_degree, 
+			                      signals, signal_variables, error);
+	}
+	
+	else
+	{
+		write_time_results(time_results, time);
+	}
+	
+	free(row_ptr);
+	free(col_ind);
+	free(weights);
 }

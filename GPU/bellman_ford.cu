@@ -22,9 +22,9 @@ extern "C" {
     	exit(1); \
  }
 
-__global__ void relax(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int* nv, int* distance) 
+__global__ void relax(int *row_ptr, int *col_ind, int *weights, int *queue, 
+	                  int *nextQueue, int size, int* nextSize, int* nv, int* distance) 
 {
-
     int index, u, v, w, du, dv, add, tid = threadIdx.x + (blockDim.x * blockIdx.x);
 
     if (tid < size) { 
@@ -45,10 +45,8 @@ __global__ void relax(int *row_ptr, int *col_ind, int *weights, int *queue, int 
             	index = atomicAdd(nextSize, 1);
 				nextQueue[index] = v;
             }
-
         }
     }
-
 }
 
 __global__ void relaxAtom(int *row_ptr, int *col_ind, int *weights, int *queue, int *nextQueue, int size, int* nextSize, int2* distance, int *iter) 
@@ -122,7 +120,9 @@ __global__ void subset_of_vertices(int *size, float *percentage, int *queue, int
 
 extern "C"
 
-void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals, float *time)
+void sbf(const int *row_ptr, const int *col_ind, const int *weights, int **distance, 
+	     const int nv, const int ne, int source, int *signals, float **signal_variables, 
+	     float *time)
 {
 
 	// Initialize GPU variables
@@ -131,15 +131,11 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	float *d_percentage;
 	int2* d_dist;
 
-
 	int2* dist = (int2*)malloc(nv*sizeof(int2));
-
-	int signal_partial_graph_process = (*appr_vals)[0];
-	int signal_reduce_execution = (*appr_vals)[1];
-	int iter_num = (*appr_vals)[2];
-	float *percentage = (float*)malloc(nv*sizeof(float));
-	*percentage = (*appr_vals)[3];
-
+	float *percentage = (float*) malloc (sizeof(float));
+	*percentage = (*signal_variables)[2];
+	int signal_reduce_execution = signals[3];
+	int signal_partial_graph_process = signals[4];
 
 	cudaCheck(cudaMalloc((void **)&d_row_ptr, (nv+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_col_ind, (ne+1)*sizeof(int)));
@@ -161,7 +157,6 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaProfilerStart();
 	*/
 
-
 	initVar<<<(nv + N_THREADS_PER_BLOCK - 1) / N_THREADS_PER_BLOCK, N_THREADS_PER_BLOCK>>>(d_dist, d_nv);
 
 	cudaCheck(cudaMemcpy(dist, d_dist, nv*sizeof(int2), cudaMemcpyDeviceToHost));
@@ -181,7 +176,7 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	dist[source].x = 0;
 
 	for (int i = row_ptr[source]; i < row_ptr[source + 1]; i++) { // for each neighbor of source node
-		
+
 		int w = weights[i];
 		int du = dist[source].x;
 		int dv = dist[col_ind[i]].x;
@@ -204,7 +199,6 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	int *iter = (int*)malloc(sizeof(int));
 	*iter = 2;
 
-
 	// Allocate device
 	
 	cudaCheck(cudaMalloc((void **)&d_nextSize, sizeof(int)));
@@ -221,7 +215,6 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaCheck(cudaMemcpy(d_queue, srcArr, srcNeigh * sizeof(int), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
 	cudaCheck(cudaMemcpy(d_percentage, percentage, sizeof(float), cudaMemcpyHostToDevice));
-
 
 	int size = srcNeigh;
 	int *nextSize = (int*)malloc(sizeof(int));
@@ -241,7 +234,6 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 
 	// no approximation. Both signals are negative
 	while((size > 0) && (round < nv) && temp < ne && !signal_reduce_execution && !signal_partial_graph_process) { temp += size;
-
 		//printf("NO APPR\n");
 
 		cudaCheck(cudaMemcpy(d_iter, iter, sizeof(int), cudaMemcpyHostToDevice));
@@ -263,7 +255,7 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 
 		//printf("round: %i\n", round);
 
-		(*appr_vals)[2] = round;
+		(*signal_variables)[1] = round;
 		round++;
 
 	}
@@ -321,8 +313,8 @@ void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *
 	cudaCheck(cudaFree(d_dist));
 
 
-	printf("GPU SBF time(ms): %f\n", elapsed);
+	printf("GPU SBF time(ms): %f\n", elapsed+elapsed0);
 
-	*time = elapsed;
+	*time = elapsed+elapsed0;
 	
 }

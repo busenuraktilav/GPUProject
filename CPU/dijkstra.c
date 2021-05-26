@@ -5,18 +5,16 @@
 #include "dijkstra.h"
 #include "heap.h"
 
-void dijkstra(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **distance, int **previous, int nv, int ne, int start, int *count)
+void dijkstra(int **row_ptr, int **col_ind, int **weights, int **distance, int nv, 
+	          int ne, int start)
 {
 	*distance = (int *)malloc(nv * sizeof(int));
-	*previous = (int *)malloc(nv * sizeof(int));
 
 	Heap *h = create_heap(nv+1);
 
 	for(int count, v = 0; v < nv+1; v++)
 	{
 		(*distance)[v] = INT_MAX;
-		(*previous)[v] = -1;
-		
 		insert_to_heap(h, v);
 	}
 
@@ -52,21 +50,7 @@ void dijkstra(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **
 			if(tempDistance < (*distance)[(*col_ind)[(*row_ptr)[u]+i]] && (*distance)[u] != INT_MAX)
 			{
 				(*distance)[(*col_ind)[(*row_ptr)[u]+i]] = tempDistance;
-				(*previous)[(*col_ind)[(*row_ptr)[u]+i]] = u;
 			}
 		}
 	}
-
-	/*
-	//int count = 0;
-	for (int i = 0; i < nv; ++i)
-	{
-		if((*distance)[i] != INT_MAX){
-			//printf("(*distance)[%i]: %i\n", i, (*distance)[i]);
-			(*count)++;
-		}
-
-	}
-	//printf("count: %i\n", *count);
-	*/
 }

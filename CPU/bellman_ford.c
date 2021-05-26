@@ -7,15 +7,14 @@
 #include "bellman_ford.h"
 
 
-void bellman_ford(int **row_ptr, int **col_ind, int **row_ind, int **weights, int **distance, int **previous, int nv, int ne, int start)
+void bellman_ford(int **row_ptr, int **col_ind, int **weights, int **distance, int nv, 
+	              int ne, int start)
 {
 	*distance = (int *)malloc(nv * sizeof(int));
-	*previous = (int *)malloc(nv * sizeof(int));
 
 	for(int i = 0; i < nv; i++)
 	{
 		(*distance)[i] = INT_MAX;
-		(*previous)[i] = -1;
 	}
 
 

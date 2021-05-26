@@ -161,8 +161,8 @@ extern "C"
 
 
 void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int **distance, 
-	             int **previous, const int nv, const int ne, int source, int neg_edge_count, 
-	             float **appr_vals, int max_distance, float *time)
+	         const int nv, const int ne, int source, int *signals, float **signal_variables, 
+	         int max_distance, int neg_edge_count, float *time)
 {
 	// Initialize GPU variables
 	int *d_row_ptr, *d_col_ind, *d_weights, *d_distance, *d_previous, *d_visited, *d_nv, *d_ne,
@@ -172,19 +172,18 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	
 	// Initialize CPU variables
 	*distance = (int*)malloc(nv*sizeof(int)); 
-	*previous = (int*)malloc(nv*sizeof(int));
 	int *visited = (int*)calloc(nv, sizeof(int));
 	int *temp_distance = (int*)malloc(nv*sizeof(int));
 
 	
 	//SIGNALSs
-	int signal_partial_graph_process = (*appr_vals)[0];
-	int signal_reduce_execution = (*appr_vals)[1];
-	int iter_num = (*appr_vals)[2];
-	float *percentage = (float*)malloc(nv*sizeof(float));
-	*percentage = (*appr_vals)[3];
-	int min_edges = (*appr_vals)[4];
-	int signal_atomicExchBlock = (*appr_vals)[8];
+	int signal_partial_graph_process = signals[4];
+	int signal_reduce_execution = signals[3];
+	int iter_num = (*signal_variables)[1];
+	float *percentage = (float*) malloc (sizeof(float));
+	*percentage = (*signal_variables)[2];
+	int min_edges = (*signal_variables)[0];
+	int signal_atomicExchBlock = signals[5];
 
 
 	// Allocate device
@@ -192,7 +191,6 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	cudaCheck(cudaMalloc((void **)&d_col_ind, (ne+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_weights, (ne+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_distance, nv*sizeof(int)));
-	cudaCheck(cudaMalloc((void **)&d_previous, nv*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_visited, (nv+1)*sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_nv, sizeof(int)));
 	cudaCheck(cudaMalloc((void **)&d_ne, sizeof(int)));
@@ -241,15 +239,13 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
-
 		cudaCheck(cudaEventCreate(&start));
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
 		// no approximation
-		while((count) != (k+2) && !signal_reduce_execution && !signal_partial_graph_process && !min_edges)
+		while((count) != (k+2))
 	    {
-
 	    	int cnt = 0;
 
 	    	while(!visitempty(visited, nv))
@@ -267,12 +263,10 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	       
 	       		cnt++;
 	       		
-	       		(*appr_vals)[2] = cnt;
+	       		(*signal_variables)[1] = cnt;
 
 	        }
-
 	        (count)++;
-	    
 	    }
 
 		cudaCheck(cudaEventRecord(stop, 0));
@@ -290,7 +284,6 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
-
 		cudaCheck(cudaEventCreate(&start));
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
@@ -313,20 +306,15 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 		        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * (nv+1), cudaMemcpyDeviceToHost ));
 		       
 	        }
-
 	        (count)++;
-	    
 	    }
 
-	    
 		cudaCheck(cudaEventRecord(stop, 0));
 		cudaCheck(cudaEventSynchronize(stop));
 		cudaCheck(cudaEventElapsedTime(&elapsed, start, stop));
 
 		//Copy outputs to host
 		cudaCheck(cudaMemcpy(*distance, d_distance, nv*sizeof(int), cudaMemcpyDeviceToHost));
-		
-
 	}
 
     
@@ -334,14 +322,12 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
-
 		cudaCheck(cudaEventCreate(&start));
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
-		while((count) != (k+2) && signal_reduce_execution && !signal_partial_graph_process && !min_edges)
+		while((count) != (k+2))
 	    {
-
 	    	int cnt = 0;
 
 	    	while(!visitempty(visited, nv) && cnt <= iter_num)
@@ -351,11 +337,9 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 		                                                d_visited, d_distance, d_temp_distance,
 		                                                nv, ne );
 		       
-
 		        cudaHSSSPKernel2<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
 		                                                d_visited, d_distance, d_temp_distance );
 		        
-
 		        cudaCheck(cudaMemcpy( visited, d_visited, sizeof(int) * (nv+1), cudaMemcpyDeviceToHost ));
 		      
 		        cnt++;
@@ -380,12 +364,11 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
-
 		cudaCheck(cudaEventCreate(&start));
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
-		while((count) != (k+2) && signal_reduce_execution && !signal_partial_graph_process && !min_edges)
+		while((count) != (k+2))
 	    {
 
 	    	int cnt = 0;
@@ -408,7 +391,6 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	        }
 
 	        (count)++;
-	    
 	    }
 
 	    
@@ -421,23 +403,20 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 
 	}
 
-
 	
 	if (signal_atomicExchBlock)
 	{
 		cudaEvent_t start;
 		cudaEvent_t stop;
-
 		cudaCheck(cudaEventCreate(&start));
 		cudaCheck(cudaEventCreate(&stop));
 		cudaCheck(cudaEventRecord(start, 0));
 
 		while((count) != (k+2))
 	    {
-
 	    	int cnt = 0;
 
-	    	while(!visitempty(visited, nv) && cnt <= iter_num)
+	    	while(!visitempty(visited, nv))
 	    	{
 		        // execute the kernel
 		        cudaHSSSPKernel1AtomicExchBlock<<< gridSize, threadnum >>>( d_row_ptr, d_col_ind, d_weights,
@@ -453,9 +432,7 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 		      
 		        cnt++;
 	        }
-
 	        (count)++;
-	    
 	    }
 
 	    
@@ -469,16 +446,13 @@ void apprshybrid(const int *row_ptr, const int *col_ind, const int *weights, int
 	}
 	
 
-
 	printf("count: %i\n", count);
-
 
 	// Deallocation
 	cudaCheck(cudaFree(d_row_ptr));
 	cudaCheck(cudaFree(d_col_ind));
 	cudaCheck(cudaFree(d_weights));
 	cudaCheck(cudaFree(d_distance));
-	cudaCheck(cudaFree(d_previous));
 
 	printf("GPU SHYBRID time: %f\n", elapsed);
 

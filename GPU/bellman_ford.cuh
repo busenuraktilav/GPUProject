@@ -1,2 +1,6 @@
-void sbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals, float *time);
-void apprbf(const int *row_ptr, const int *col_ind, const int *row_ind, const int *weights, int **distance, int **previous, const int nv, const int ne, int source, float **appr_vals, int max_distance, float *time);
+void sbf(const int *row_ptr, const int *col_ind, const int *weights, int **distance, 
+	     const int nv, const int ne, int source, int *signals, float **signal_variables, 
+	     float *time);
+void apprbf(const int *row_ptr, const int *col_ind, const int *weights, int **distance, 
+	        const int nv, const int ne, int source, int *signals, float **signal_variables, 
+	        int max_distance, float *time);
