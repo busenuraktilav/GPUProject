@@ -1,0 +1,2 @@
+main: ../../include/graphio/graphio.c ../../include/utils/cpu_utils.c bellman_ford.c main.c
+	nvcc -o bellman-ford-cpu -O3 -lgomp -lm -lcurand -lcuda ../../include/graphio/graphio.c ../../include/utils/cpu_utils.c bellman_ford.c main.c
