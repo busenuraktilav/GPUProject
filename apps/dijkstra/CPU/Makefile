@@ -1,0 +1,2 @@
+main: ../../include/graphio/graphio.c ../../include/utils/cpu_utils.c ../../include/utils/heap.c dijkstra.c main.c
+	nvcc -o dijkstra-cpu -O3 -lgomp -lm -lcurand -lcuda ../../include/graphio/graphio.c ../../include/utils/cpu_utils.c ../../include/utils/heap.c dijkstra.c main.c
