@@ -1,3 +1,0 @@
-../../GPU_PROJECT/code/example_graphs/graph_18_16_pos-10.txt
-../../GPU_PROJECT/code/example_graphs/graph_19_16_pos-10.txt
-../../GPU_PROJECT/code/example_graphs/graph_20_16_pos-10.txt
