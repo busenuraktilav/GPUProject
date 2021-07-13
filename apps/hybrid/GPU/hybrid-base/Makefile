@@ -1,0 +1,2 @@
+main: ../../../include/graphio/graphio.c ../../../include/utils/cpu_utils.c hybrid.cu main.c
+	nvcc -o run -O3 -lm -lcurand -lcuda ../../../include/graphio/graphio.c ../../../include/utils/cpu_utils.c hybrid.cu main.c
