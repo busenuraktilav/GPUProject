@@ -328,10 +328,10 @@ int min_edge_to_process (const int *row_ptr, int nv, int min_edge)
 		}
 	}
 
-	int nchunk = 10;
+	int nchunk = 5;
 	int chunk = ((nv - start) / nchunk) + 1;
 	int j = start;
-	int size = nchunk*3;
+	int size = nchunk*2;
 
 	printf("chunk in min: %i\n", chunk);
 
@@ -343,10 +343,10 @@ int min_edge_to_process (const int *row_ptr, int nv, int min_edge)
 
 		if (i == nchunk - 1 && j < nv)
 		{
-			int chunk2 = chunk / 10;
+			int chunk2 = chunk / nchunk;
 			int z = chunk2;
 
-			for (int k = 1; k < 10; ++k)
+			for (int k = 1; k < nchunk; ++k)
 			{
 				indices[i+k] = arr[j+z];
 				z += chunk2;
@@ -388,7 +388,7 @@ int max_edge_to_process (const int *row_ptr, int nv, int max_edge)
 		}
 	}
 
-	int nchunk = 10;
+	int nchunk = 5;
 	int chunk = (((nv - start) / 200))/nchunk;
 	printf("chunk in max: %i\n", chunk);
 	int j = 0;
