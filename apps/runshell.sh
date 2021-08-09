@@ -3,6 +3,7 @@ q#!/bin/bash
 file1='./graph_names.txt'
 file2='./bellman-ford/compare/bellman_originaldistance.txt'
 file3='./dijkstra/compare/dijkstra_originaldistance.txt'
+file4='./hybrid/compare/dijkstra_originaldistance.txt'
 
 
 echo "vertexNum,edgeNum,iterationNum,maxEdgeDegree,minProcessEdge,maxProcessEdge,percentage,sOriginalDistance,sMinEdgetoProcess,sMaxEdgetoProcess,sPartialGraphProcess,sReduceExecution,sAtomicBlock,Error,executionTime" >> '../analysis-results/bellman_performance_results.csv'
@@ -559,7 +560,7 @@ done
 cd ../../../
 
 
-iter=$(head -n 1 $file3)
+iter=$(head -n 1 $file4)
 
 
 cd ./hybrid/GPU/hybrid-reduce
