@@ -14,7 +14,7 @@
 
 int main (int argc, char const *argv[])
 {
-	const char* distance_file = "../../../bellman-ford/compare/bellman_originaldistance.txt";
+	const char* distance_file = "../../compare/dijkstra_originaldistance.txt";
 	const char* time_results = "time_results.txt";
 	const char* error_results = "error_results.txt";
 	const char* perf_results = "../../../../analysis-results/hybrid_performance_results.csv";

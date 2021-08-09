@@ -14,7 +14,7 @@
 int main (int argc, char const *argv[])
 {
 
-	const char* distance_file = "../../../bellman-ford/compare/bellman_originaldistance.txt";
+	const char* distance_file = "../../compare/dijkstra_originaldistance.txt";
 	const char* time_results = "time_results.txt";
 	const char* error_results = "error_results.txt";
 	const char* perf_results = "../../../../analysis-results/hybrid_performance_results.csv";
@@ -38,16 +38,16 @@ int main (int argc, char const *argv[])
 		return -1;
 	}
 
-	read_distance(distance_file, &distance, &iter_num, nv);
+	//read_distance(distance_file, &distance, &iter_num, nv);
 	start = select_start_vertex(row_ptr, nv, &max_degree);
 
 	printf("Start node: %i\n", start);
 	printf("Max degree: %i\n", max_degree);
 
-	time = shybrid(row_ptr, col_ind, weights, &approximate_distance, nv, ne, start, &iter_num, neg_edge_count);	
-	error = relative_error(&distance, &approximate_distance, nv);
+	time = shybrid(row_ptr, col_ind, weights, &distance, nv, ne, start, &iter_num, neg_edge_count);	
+	//error = relative_error(&distance, &approximate_distance, nv);
 
-	printf("******* ERROR *******: %f\n", error);
+	//printf("******* ERROR *******: %f\n", error);
 
 	int *signals = (int *) calloc (9 , sizeof(int));
 	signals[0] = 1;
