@@ -91,11 +91,14 @@ float shybrid(const int *row_ptr, const int *col_ind, const int *weights, int **
         	round++;
         }
 
+        if (r == 0)
+        {
+        	(*iter_num) = round;
+        }
+
         round = 0;
         r++;
     }
-
-    (*iter_num) = round;
 	
 	cudaCheck(cudaEventRecord(stop, 0));
 	cudaCheck(cudaEventSynchronize(stop));
